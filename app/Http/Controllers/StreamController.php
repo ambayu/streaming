@@ -46,6 +46,9 @@ class StreamController extends Controller
     /**
      * Start streaming selected videos.
      */
+    /**
+     * Start streaming selected videos.
+     */
     public function start(Request $request)
     {
         $request->validate([
@@ -74,7 +77,8 @@ class StreamController extends Controller
                 return redirect()->route('stream.index')->with('error', 'Tidak ada video valid yang dipilih!');
             }
 
-            $videoPaths = $videos->pluck('path')->map(fn($path) => Storage::path($path))->toArray();
+            // Gunakan disk 'public' untuk video paths
+            $videoPaths = $videos->pluck('path')->map(fn($path) => Storage::disk('public')->path($path))->toArray();
 
             // Verifikasi file video ada
             foreach ($videoPaths as $videoPath) {
@@ -87,7 +91,7 @@ class StreamController extends Controller
             $logFile = storage_path('logs/stream.log');
             $youtubeKey = $setting->youtube_key;
             $tmuxTmpDir = base_path('storage/tmux');
-            $videoDir = storage_path('app/public/videos'); // Directory containing videos
+            $videoDir = storage_path('app/public/videos'); // Direktori video di public disk
 
             // Buat direktori tmux jika belum ada
             if (!file_exists($tmuxTmpDir)) {
@@ -105,7 +109,7 @@ class StreamController extends Controller
                 file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Created scripts directory\n", FILE_APPEND);
             }
 
-            // Buat script bash yang meniru Script 2
+            // Buat script bash yang meniru pendekatan directory-based
             $scriptContent = <<<EOD
 #!/bin/bash
 
