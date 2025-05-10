@@ -91,7 +91,7 @@ class StreamController extends Controller
             $logFile = storage_path('logs/stream.log');
             $youtubeKey = $setting->youtube_key;
             $tmuxTmpDir = base_path('storage/tmux');
-            $videoDir = storage_path('app/public/videos'); // Direktori video di public disk
+            $videoDir = storage_path('app/public/videos');
 
             // Buat direktori tmux jika belum ada
             if (!file_exists($tmuxTmpDir)) {
@@ -109,22 +109,19 @@ class StreamController extends Controller
                 file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Created scripts directory\n", FILE_APPEND);
             }
 
-            // Buat script bash yang meniru pendekatan directory-based
+            // Buat script bash
             $scriptContent = <<<EOD
 #!/bin/bash
 
-# File log untuk mencatat aktivitas streaming
 LOGFILE="$logFile"
 VIDEO_DIR="$videoDir"
 
-# Periksa apakah direktori video ada
 if [ ! -d "\$VIDEO_DIR" ]; then
     echo "\$(date): ERROR: Direktori video \$VIDEO_DIR tidak ditemukan" >> "\$LOGFILE"
     exit 1
 fi
 
 while true; do
-    # Cari file .mp4 di direktori
     shopt -s nullglob
     VIDEO_FILES=("\$VIDEO_DIR"/*.mp4)
     if [ \${#VIDEO_FILES[@]} -eq 0 ]; then
@@ -144,7 +141,6 @@ while true; do
 done
 EOD;
 
-            // Tulis script dan log hasilnya
             if (!file_put_contents($scriptPath, $scriptContent)) {
                 return redirect()->route('stream.index')->with('error', 'Gagal menulis stream.sh!');
             }
@@ -153,21 +149,30 @@ EOD;
             }
             file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Created and set permissions for stream.sh\n", FILE_APPEND);
 
-            // Mulai tmux session dengan TMUX_TMPDIR
+            // Set environment variables dan path
+            $envCommand = "export TMUX_TMPDIR=$tmuxTmpDir; export PATH=\$PATH:/usr/local/bin:/usr/bin:/bin;";
+
+            // Mulai tmux session dengan environment yang benar
             $sessionName = 'stream_' . auth()->id();
-            shell_exec("TMUX_TMPDIR=$tmuxTmpDir tmux kill-session -t $sessionName 2>/dev/null");
-            $tmuxCommand = "TMUX_TMPDIR=$tmuxTmpDir tmux new-session -d -s $sessionName '$scriptPath' 2>&1";
+            shell_exec("$envCommand tmux kill-session -t $sessionName 2>/dev/null");
+
+            $tmuxCommand = "$envCommand tmux new-session -d -s $sessionName '$scriptPath' 2>&1";
             $tmuxOutput = shell_exec($tmuxCommand);
+
             file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Tmux command: $tmuxCommand\n", FILE_APPEND);
             if ($tmuxOutput) {
                 file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Tmux output: $tmuxOutput\n", FILE_APPEND);
             }
 
             // Verifikasi apakah tmux session berjalan
-            sleep(3); // Increased to 3 seconds for stability
-            $tmuxStatus = shell_exec("TMUX_TMPDIR=$tmuxTmpDir tmux has-session -t $sessionName 2>&1");
+            sleep(3);
+            $checkCommand = "$envCommand tmux has-session -t $sessionName 2>&1";
+            $tmuxStatus = shell_exec($checkCommand);
+
+            file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Tmux check command: $checkCommand\n", FILE_APPEND);
             file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Tmux status check output: $tmuxStatus\n", FILE_APPEND);
-            if ($tmuxStatus === null || strpos($tmuxStatus, 'no server running') !== false) {
+
+            if ($tmuxStatus === null || strpos($tmuxStatus, 'no server running') !== false || strpos($tmuxStatus, 'error') !== false) {
                 return redirect()->route('stream.index')->with('error', 'Gagal memulai tmux session! Log: ' . ($tmuxOutput ?: 'No tmux output'));
             }
 
