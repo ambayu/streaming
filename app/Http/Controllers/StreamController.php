@@ -87,7 +87,7 @@ class StreamController extends Controller
             $logFile = storage_path('logs/stream.log');
             $youtubeKey = $setting->youtube_key;
             $tmuxTmpDir = base_path('storage/tmux');
-            $videoDir = storage_path('app/videos'); // Directory containing videos
+            $videoDir = storage_path('app/public/videos'); // Directory containing videos
 
             // Buat direktori tmux jika belum ada
             if (!file_exists($tmuxTmpDir)) {
