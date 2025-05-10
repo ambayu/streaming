@@ -43,145 +43,161 @@ class StreamController extends Controller
             return redirect()->back()->with('error', 'Gagal menyimpan YouTube key: ' . $e->getMessage());
         }
     }
-    /**
-     * Start streaming selected videos.
-     */
-    /**
-     * Start streaming selected videos.
-     */
-    public function start(Request $request)
-    {
-        $request->validate([
-            'videos' => 'required|array|min:1',
-            'videos.*' => 'exists:videos,id',
-        ]);
+public function start(Request $request)
+{
+    $request->validate([
+        'videos' => 'required|array|min:1',
+        'videos.*' => 'exists:videos,id',
+    ]);
 
-        $setting = auth()->user()->streamSettings;
-        if (!$setting) {
-            return redirect()->route('stream.index')->with('error', 'Masukkan YouTube key terlebih dahulu!');
+    // Verify YouTube key exists
+    $setting = auth()->user()->streamSettings;
+    if (!$setting || empty($setting->youtube_key)) {
+        return redirect()->route('stream.index')->with('error', 'YouTube streaming key belum diatur!');
+    }
+
+    // Check system dependencies
+    $ffmpegCheck = shell_exec('which ffmpeg 2>&1');
+    $tmuxCheck = shell_exec('which tmux 2>&1');
+
+    if (empty($ffmpegCheck)) {
+        return redirect()->route('stream.index')->with('error', 'FFmpeg tidak terinstall!');
+    }
+    if (empty($tmuxCheck)) {
+        return redirect()->route('stream.index')->with('error', 'Tmux tidak terinstall!');
+    }
+
+    try {
+        // Get selected videos
+        $videos = Video::whereIn('id', $request->videos)
+                    ->where('user_id', auth()->id())
+                    ->get();
+
+        if ($videos->isEmpty()) {
+            return redirect()->route('stream.index')->with('error', 'Tidak ada video yang valid dipilih!');
         }
 
-        // Periksa dependensi sistem
-        $ffmpegPath = shell_exec('which ffmpeg');
-        $tmuxPath = shell_exec('which tmux');
-        if (!$ffmpegPath || !$tmuxPath) {
-            return redirect()->route('stream.index')->with('error', 'FFmpeg atau tmux tidak terinstal di server! FFmpeg: ' . ($ffmpegPath ?: 'not found') . ', Tmux: ' . ($tmuxPath ?: 'not found'));
+        // Prepare paths
+        $scriptPath = base_path('scripts/stream.sh');
+        $logFile = storage_path('logs/stream_'.auth()->id().'.log');
+        $tmuxTmpDir = storage_path('tmux');
+        $sessionName = 'stream_'.auth()->id();
+
+        // Create necessary directories
+        if (!file_exists(dirname($scriptPath))) {
+            mkdir(dirname($scriptPath), 0755, true);
+        }
+        if (!file_exists($tmuxTmpDir)) {
+            mkdir($tmuxTmpDir, 0700, true);
         }
 
-        try {
-            $videos = Video::whereIn('id', $request->videos)
-                ->where('user_id', auth()->id())
-                ->get();
-
-            if ($videos->isEmpty()) {
-                return redirect()->route('stream.index')->with('error', 'Tidak ada video valid yang dipilih!');
+        // Build video file list
+        $videoFiles = [];
+        foreach ($videos as $video) {
+            $path = Storage::disk('public')->path($video->path);
+            if (!file_exists($path)) {
+                throw new \Exception("File video tidak ditemukan: ".$video->path);
             }
+            $videoFiles[] = $path;
+        }
 
-            // Gunakan disk 'public' untuk video paths
-            $videoPaths = $videos->pluck('path')->map(fn($path) => Storage::disk('public')->path($path))->toArray();
-
-            // Verifikasi file video ada
-            foreach ($videoPaths as $videoPath) {
-                if (!file_exists($videoPath)) {
-                    return redirect()->route('stream.index')->with('error', 'File video tidak ditemukan: ' . $videoPath);
-                }
-            }
-
-            $scriptPath = base_path('scripts/stream.sh');
-            $logFile = storage_path('logs/stream.log');
-            $youtubeKey = $setting->youtube_key;
-            $tmuxTmpDir = base_path('storage/tmux');
-            $videoDir = storage_path('app/public/videos');
-
-            // Buat direktori tmux jika belum ada
-            if (!file_exists($tmuxTmpDir)) {
-                if (!mkdir($tmuxTmpDir, 0700, true)) {
-                    return redirect()->route('stream.index')->with('error', 'Gagal membuat direktori tmux!');
-                }
-                file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Created tmux directory\n", FILE_APPEND);
-            }
-
-            // Buat direktori scripts jika belum ada
-            if (!file_exists(dirname($scriptPath))) {
-                if (!mkdir(dirname($scriptPath), 0755, true)) {
-                    return redirect()->route('stream.index')->with('error', 'Gagal membuat direktori scripts!');
-                }
-                file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Created scripts directory\n", FILE_APPEND);
-            }
-
-            // Buat script bash
-            $scriptContent = <<<EOD
+        // Create streaming script
+        $scriptContent = <<<EOD
 #!/bin/bash
+# Streaming script generated at $(date)
 
 LOGFILE="$logFile"
-VIDEO_DIR="$videoDir"
+YT_KEY="{$setting->youtube_key}"
+VIDEOS=(
+    "$(implode('"'."\n    \"", $videoFiles))"
+)
 
-if [ ! -d "\$VIDEO_DIR" ]; then
-    echo "\$(date): ERROR: Direktori video \$VIDEO_DIR tidak ditemukan" >> "\$LOGFILE"
-    exit 1
-fi
+echo "\$(date) - Memulai streaming" >> "\$LOGFILE"
 
-while true; do
-    shopt -s nullglob
-    VIDEO_FILES=("\$VIDEO_DIR"/*.mp4)
-    if [ \${#VIDEO_FILES[@]} -eq 0 ]; then
-        echo "\$(date): WARNING: Tidak ada file .mp4 di \$VIDEO_DIR, menunggu 10 detik" >> "\$LOGFILE"
-        sleep 10
+for video in "\${VIDEOS[@]}"; do
+    if [ ! -f "\$video" ]; then
+        echo "\$(date) - ERROR: File \$video tidak ditemukan" >> "\$LOGFILE"
         continue
     fi
-    for f in "\${VIDEO_FILES[@]}"; do
-        echo "\$(date): Memulai streaming \$f" >> "\$LOGFILE"
-        ffmpeg -re -i "\$f" -c:v copy -c:a copy -f flv "rtmp://a.rtmp.youtube.com/live2/$youtubeKey" >> "\$LOGFILE" 2>&1
-        if [ \$? -ne 0 ]; then
-            echo "\$(date): ERROR saat streaming \$f" >> "\$LOGFILE"
-        else
-            echo "\$(date): Selesai streaming \$f" >> "\$LOGFILE"
-        fi
-    done
+
+    echo "\$(date) - Processing \$video" >> "\$LOGFILE"
+
+    ffmpeg -re -i "\$video" \
+        -c:v copy -c:a copy \
+        -f flv "rtmp://a.rtmp.youtube.com/live2/\$YT_KEY" \
+        2>> "\$LOGFILE"
+
+    if [ \$? -ne 0 ]; then
+        echo "\$(date) - ERROR: Gagal streaming \$video" >> "\$LOGFILE"
+    else
+        echo "\$(date) - Selesai streaming \$video" >> "\$LOGFILE"
+    fi
 done
+
+echo "\$(date) - Semua video selesai diproses" >> "\$LOGFILE"
 EOD;
 
-            if (!file_put_contents($scriptPath, $scriptContent)) {
-                return redirect()->route('stream.index')->with('error', 'Gagal menulis stream.sh!');
-            }
-            if (!chmod($scriptPath, 0755)) {
-                return redirect()->route('stream.index')->with('error', 'Gagal mengatur izin stream.sh!');
-            }
-            file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Created and set permissions for stream.sh\n", FILE_APPEND);
+        file_put_contents($scriptPath, $scriptContent);
+        chmod($scriptPath, 0755);
 
-            // Set environment variables dan path
-            $envCommand = "export TMUX_TMPDIR=$tmuxTmpDir; export PATH=\$PATH:/usr/local/bin:/usr/bin:/bin;";
+        // Prepare environment
+        $envVars = [
+            'TMUX_TMPDIR' => $tmuxTmpDir,
+            'HOME' => storage_path(),
+            'PATH' => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+            'TERM' => 'xterm'
+        ];
 
-            // Mulai tmux session dengan environment yang benar
-            $sessionName = 'stream_' . auth()->id();
-            shell_exec("$envCommand tmux kill-session -t $sessionName 2>/dev/null");
-
-            $tmuxCommand = "$envCommand tmux new-session -d -s $sessionName '$scriptPath' 2>&1";
-            $tmuxOutput = shell_exec($tmuxCommand);
-
-            file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Tmux command: $tmuxCommand\n", FILE_APPEND);
-            if ($tmuxOutput) {
-                file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Tmux output: $tmuxOutput\n", FILE_APPEND);
-            }
-
-            // Verifikasi apakah tmux session berjalan
-            sleep(3);
-            $checkCommand = "$envCommand tmux has-session -t $sessionName 2>&1";
-            $tmuxStatus = shell_exec($checkCommand);
-
-            file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Tmux check command: $checkCommand\n", FILE_APPEND);
-            file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Tmux status check output: $tmuxStatus\n", FILE_APPEND);
-
-            if ($tmuxStatus === null || strpos($tmuxStatus, 'no server running') !== false || strpos($tmuxStatus, 'error') !== false) {
-                return redirect()->route('stream.index')->with('error', 'Gagal memulai tmux session! Log: ' . ($tmuxOutput ?: 'No tmux output'));
-            }
-
-            return redirect()->route('stream.index')->with('success', 'Streaming berhasil dimulai dan tmux session berjalan!');
-        } catch (\Exception $e) {
-            file_put_contents(storage_path('logs/tmux.log'), date('Y-m-d H:i:s') . ": Exception: " . $e->getMessage() . "\n", FILE_APPEND);
-            return redirect()->route('stream.index')->with('error', 'Gagal memulai streaming: ' . $e->getMessage());
+        $envString = '';
+        foreach ($envVars as $key => $value) {
+            $envString .= "export $key=\"$value\"; ";
         }
+
+        // Kill existing session
+        $killCmd = "{$envString} tmux kill-session -t {$sessionName} 2>&1";
+        shell_exec($killCmd);
+
+        // Start new session
+        $startCmd = "{$envString} tmux new-session -d -s {$sessionName} '{$scriptPath}' 2>&1";
+        $output = shell_exec($startCmd);
+
+        // Verify session
+        sleep(2);
+        $checkCmd = "{$envString} tmux has-session -t {$sessionName} 2>&1";
+        $sessionStatus = shell_exec($checkCmd);
+
+        // Log everything
+        $debugLog = storage_path('logs/stream_debug.log');
+        file_put_contents($debugLog, "\n=== NEW STREAM ATTEMPT ===\n", FILE_APPEND);
+        file_put_contents($debugLog, "Time: ".date('Y-m-d H:i:s')."\n", FILE_APPEND);
+        file_put_contents($debugLog, "Kill Command: {$killCmd}\n", FILE_APPEND);
+        file_put_contents($debugLog, "Start Command: {$startCmd}\n", FILE_APPEND);
+        file_put_contents($debugLog, "Command Output: ".($output ?: 'NULL')."\n", FILE_APPEND);
+        file_put_contents($debugLog, "Check Command: {$checkCmd}\n", FILE_APPEND);
+        file_put_contents($debugLog, "Session Status: ".($sessionStatus ?: 'NULL')."\n", FILE_APPEND);
+
+        if (empty($sessionStatus)) {
+            throw new \Exception("Tmux session tidak berhasil dimulai. Tidak ada output dari status check.");
+        }
+
+        if (strpos($sessionStatus, 'error') !== false || strpos($sessionStatus, 'fail') !== false) {
+            throw new \Exception("Tmux melaporkan error: ".$sessionStatus);
+        }
+
+        return redirect()->route('stream.index')
+               ->with('success', 'Streaming berhasil dimulai!')
+               ->with('debug', nl2br(file_get_contents($debugLog)));
+
+    } catch (\Exception $e) {
+        $errorLog = storage_path('logs/stream_error.log');
+        file_put_contents($errorLog, date('Y-m-d H:i:s')." - Error: ".$e->getMessage()."\n", FILE_APPEND);
+
+        return redirect()->route('stream.index')
+               ->with('error', 'Gagal memulai streaming: '.$e->getMessage())
+               ->with('debug', nl2br(file_get_contents($debugLog ?? $errorLog)));
     }
+}
+
 
     public function stop()
     {
