@@ -45,140 +45,205 @@ class StreamController extends Controller
     }
 
     public function start(Request $request)
-    {
-        $request->validate([
-            'videos' => 'required|array|min:1',
-            'videos.*' => 'exists:videos,id',
-        ]);
+{
+    $request->validate([
+        'videos' => 'required|array|min:1',
+        'videos.*' => 'exists:videos,id',
+    ]);
 
-        $setting = auth()->user()->streamSettings;
-        if (!$setting) {
-            return redirect()->route('stream.index')->with('error', 'Masukkan YouTube key terlebih dahulu!');
+    $setting = auth()->user()->streamSettings;
+    if (!$setting || empty($setting->youtube_key)) {
+        return redirect()->route('stream.index')->with('error', 'YouTube streaming key belum diatur!');
+    }
+
+    // Periksa dependensi sistem dengan error handling lebih baik
+    $ffmpegCheck = shell_exec('which ffmpeg 2>&1');
+    $pm2Check = shell_exec('which pm2 2>&1');
+
+    if (empty($ffmpegCheck)) {
+        return redirect()->route('stream.index')
+               ->with('error', 'FFmpeg tidak terinstall! Install dengan: sudo apt install ffmpeg');
+    }
+    if (empty($pm2Check)) {
+        return redirect()->route('stream.index')
+               ->with('error', 'PM2 tidak terinstall! Install dengan: sudo npm install pm2 -g');
+    }
+
+    try {
+        // Get selected videos dengan eager loading jika ada relasi
+        $videos = Video::whereIn('id', $request->videos)
+                    ->where('user_id', auth()->id())
+                    ->get();
+
+        if ($videos->isEmpty()) {
+            return redirect()->route('stream.index')->with('error', 'Tidak ada video yang valid dipilih!');
         }
 
-        // Periksa dependensi sistem
-        $ffmpegPath = shell_exec('which ffmpeg');
-        $pm2Path = shell_exec('which pm2');
-        if (!$ffmpegPath || !$pm2Path) {
-            return redirect()->route('stream.index')->with('error', 'FFmpeg atau PM2 tidak terinstal di server! FFmpeg: ' . ($ffmpegPath ?: 'not found') . ', PM2: ' . ($pm2Path ?: 'not found'));
+        // Prepare paths dengan validasi lebih ketat
+        $scriptPath = base_path('scripts/stream_'.auth()->id().'.js');
+        $logFile = storage_path('logs/stream_'.auth()->id().'.log');
+        $youtubeKey = $setting->youtube_key;
+
+        // Buat direktori scripts jika belum ada
+        if (!file_exists(dirname($scriptPath))) {
+            if (!mkdir(dirname($scriptPath), 0755, true)) {
+                throw new \Exception("Gagal membuat direktori scripts!");
+            }
         }
 
-        try {
-            $videos = Video::whereIn('id', $request->videos)
-                ->where('user_id', auth()->id())
-                ->get();
-
-            if ($videos->isEmpty()) {
-                return redirect()->route('stream.index')->with('error', 'Tidak ada video valid yang dipilih!');
+        // Verifikasi dan persiapkan path video
+        $videoPaths = [];
+        foreach ($videos as $video) {
+            $path = Storage::disk('public')->path($video->path);
+            if (!file_exists($path)) {
+                throw new \Exception("File video tidak ditemukan: ".$video->path);
             }
+            $videoPaths[] = $path;
+        }
 
-            // Verifikasi file video ada
-            foreach ($videos as $video) {
-                $videoPath = Storage::disk('public')->path($video->path);
-                if (!file_exists($videoPath)) {
-                    return redirect()->route('stream.index')->with('error', 'File video tidak ditemukan: ' . $videoPath);
-                }
-            }
+        // Konversi ke JSON dengan error handling
+        $videoPathsJson = json_encode($videoPaths);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \Exception("Gagal memproses daftar video: ".json_last_error_msg());
+        }
 
-            $scriptPath = base_path('scripts/stream.js');
-            $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
-            $youtubeKey = $setting->youtube_key;
-
-            // Buat direktori scripts jika belum ada
-            if (!file_exists(dirname($scriptPath))) {
-                if (!mkdir(dirname($scriptPath), 0755, true)) {
-                    return redirect()->route('stream.index')->with('error', 'Gagal membuat direktori scripts!');
-                }
-            }
-
-            // Buat script Node.js untuk PM2
-            $videoPaths = $videos->pluck('path')->map(fn($path) => Storage::disk('public')->path($path))->toArray();
-
-            $scriptContent = <<<EOD
+        // Buat script Node.js dengan error handling lebih baik
+        $scriptContent = <<<EOD
 const { exec } = require('child_process');
 const fs = require('fs');
+const path = require('path');
 
+// Config
 const YT_KEY = "$youtubeKey";
 const LOG_FILE = "$logFile";
-const VIDEOS = JSON.parse(`$videoPaths`);
+const VIDEOS = $videoPathsJson;
 
+// Logging function
 function log(message) {
     const timestamp = new Date().toISOString();
-    fs.appendFileSync(LOG_FILE, `[\${timestamp}] \${message}\n`);
+    const logMessage = `[\${timestamp}] \${message}\n`;
+
+    try {
+        fs.appendFileSync(LOG_FILE, logMessage);
+    } catch (err) {
+        console.error('Gagal menulis log:', err);
+    }
 }
 
-async function streamVideo(videoPath) {
+// Stream video function
+function streamVideo(videoPath) {
     return new Promise((resolve, reject) => {
-        log(`Memulai streaming \${videoPath}`);
+        if (!fs.existsSync(videoPath)) {
+            log(\`ERROR: File \${videoPath} tidak ditemukan\`);
+            return reject(new Error('File tidak ditemukan'));
+        }
 
-        const ffmpegCmd = \`ffmpeg -re -i "\${videoPath}" -c:v copy -c:a copy -f flv "rtmp://a.rtmp.youtube.com/live2/\${YT_KEY}"\`;
+        log(\`Memulai streaming \${path.basename(videoPath)}\`);
 
-        exec(ffmpegCmd, (error, stdout, stderr) => {
+        const ffmpegCmd = \`ffmpeg -re -i "\${videoPath}" \\
+            -c:v copy -c:a copy \\
+            -f flv "rtmp://a.rtmp.youtube.com/live2/\${YT_KEY}"\`;
+
+        const child = exec(ffmpegCmd, (error, stdout, stderr) => {
             if (error) {
-                log(\`ERROR streaming \${videoPath}: \${error.message}\`);
+                log(\`ERROR streaming \${path.basename(videoPath)}: \${error.message}\`);
+                if (stderr) log(\`FFmpeg Error: \${stderr}\`);
                 return reject(error);
             }
-            log(\`Selesai streaming \${videoPath}\`);
+            log(\`SUKSES: Selesai streaming \${path.basename(videoPath)}\`);
             resolve();
+        });
+
+        // Handle process exit
+        child.on('exit', (code) => {
+            if (code !== 0) {
+                log(\`WARNING: Proses FFmpeg exit dengan code \${code}\`);
+            }
         });
     });
 }
 
+// Main function
 async function main() {
     try {
-        log('Streaming process started');
+        log('=== STARTING STREAMING PROCESS ===');
+        log(\`Menggunakan YouTube Key: \${YT_KEY}\`);
+        log(\`Jumlah video: \${VIDEOS.length}\`);
 
         while (true) {
-            for (const video of VIDEOS) {
-                if (!fs.existsSync(video)) {
-                    log(\`WARNING: File \${video} tidak ditemukan\`);
-                    continue;
-                }
-
+            for (const videoPath of VIDEOS) {
                 try {
-                    await streamVideo(video);
+                    await streamVideo(videoPath);
                 } catch (err) {
-                    log(\`ERROR: \${err.message}\`);
+                    log(\`ERROR dalam proses streaming: \${err.message}\`);
+                    // Tunggu sebelum mencoba lagi
+                    await new Promise(resolve => setTimeout(resolve, 5000));
                 }
             }
 
-            // Tunggu 10 detik sebelum loop berikutnya
+            log('Menunggu 10 detik sebelum loop berikutnya...');
             await new Promise(resolve => setTimeout(resolve, 10000));
         }
     } catch (err) {
-        log(\`FATAL ERROR: \${err.message}\`);
+        log(\`FATAL ERROR: \${err.stack}\`);
         process.exit(1);
     }
 }
 
-main();
+// Start the application
+main().catch(err => {
+    log(\`Unhandled rejection: \${err.stack}\`);
+    process.exit(1);
+});
 EOD;
 
-            // Tulis script
-            if (!file_put_contents($scriptPath, $scriptContent)) {
-                return redirect()->route('stream.index')->with('error', 'Gagal menulis stream.js!');
-            }
-
-            // Hentikan proses sebelumnya jika ada
-            $this->stop();
-
-            // Mulai proses dengan PM2
-            $pm2Name = 'stream_' . auth()->id();
-            $pm2Command = "pm2 start $scriptPath --name $pm2Name --log $logFile --no-autorestart";
-            $pm2Output = shell_exec($pm2Command);
-
-            // Verifikasi proses berjalan
-            sleep(2);
-            $pm2Status = shell_exec("pm2 pid $pm2Name");
-            if (empty($pm2Status)) {
-                return redirect()->route('stream.index')->with('error', 'Gagal memulai streaming dengan PM2! Output: ' . ($pm2Output ?: 'Tidak ada output'));
-            }
-
-            return redirect()->route('stream.index')->with('success', 'Streaming berhasil dimulai dengan PM2!');
-        } catch (\Exception $e) {
-            return redirect()->route('stream.index')->with('error', 'Gagal memulai streaming: ' . $e->getMessage());
+        // Tulis script file
+        if (file_put_contents($scriptPath, $scriptContent) === false) {
+            throw new \Exception("Gagal menulis file script!");
         }
+        chmod($scriptPath, 0755);
+
+        // Hentikan proses sebelumnya jika ada
+        $this->stop();
+
+        // Mulai proses dengan PM2
+        $pm2Name = 'stream_'.auth()->id();
+        $pm2Command = "pm2 start $scriptPath --name $pm2Name --log $logFile --no-autorestart 2>&1";
+        $pm2Output = shell_exec($pm2Command);
+
+        // Verifikasi proses berjalan
+        sleep(2); // Beri waktu untuk proses start
+        $pm2Status = shell_exec("pm2 pid $pm2Name 2>&1");
+
+        // Log untuk debugging
+        $debugLog = [
+            'time' => date('Y-m-d H:i:s'),
+            'command' => $pm2Command,
+            'output' => $pm2Output,
+            'status_check' => $pm2Status,
+            'script_path' => $scriptPath,
+            'log_file' => $logFile
+        ];
+        file_put_contents(storage_path('logs/stream_debug.log'), json_encode($debugLog, JSON_PRETTY_PRINT)."\n", FILE_APPEND);
+
+        if (empty($pm2Status)) {
+            throw new \Exception("Gagal memulai PM2 process. Output: ".($pm2Output ?: 'Tidak ada output'));
+        }
+
+        return redirect()->route('stream.index')
+               ->with('success', 'Streaming berhasil dimulai!')
+               ->with('debug', 'Proses ID: '.trim($pm2Status));
+
+    } catch (\Exception $e) {
+        // Log error detail
+        file_put_contents(storage_path('logs/stream_error.log'),
+            date('Y-m-d H:i:s')." - Error: ".$e->getMessage()."\n".$e->getTraceAsString()."\n",
+            FILE_APPEND);
+
+        return redirect()->route('stream.index')
+               ->with('error', 'Gagal memulai streaming: '.$e->getMessage());
     }
+}
 
     public function stop()
     {
