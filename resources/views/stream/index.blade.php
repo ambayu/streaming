@@ -6,6 +6,27 @@
             <h1 class="h4 mb-0">Manajemen Streaming</h1>
         </div>
         <div class="card-body">
+            <!-- Streaming Status Indicator -->
+            @if ($isStreaming)
+                <div class="alert alert-success d-flex align-items-center" role="alert">
+                    <svg class="bi flex-shrink-0 me-2" width="24" height="24" fill="currentColor">
+                        <circle cx="12" cy="12" r="10" fill="green"/>
+                    </svg>
+                    <div>
+                        <strong>Streaming Aktif!</strong> Tmux session sedang berjalan.
+                    </div>
+                </div>
+            @else
+                <div class="alert alert-secondary d-flex align-items-center" role="alert">
+                    <svg class="bi flex-shrink-0 me-2" width="24" height="24" fill="currentColor">
+                        <circle cx="12" cy="12" r="10" fill="gray"/>
+                    </svg>
+                    <div>
+                        Tidak ada streaming aktif.
+                    </div>
+                </div>
+            @endif
+
             <h3>YouTube Stream Key</h3>
             <form action="{{ route('stream.storeKey') }}" method="POST" class="mb-4">
                 @csrf
@@ -57,7 +78,7 @@
 
             <form action="{{ route('stream.stop') }}" method="POST" class="mt-3">
                 @csrf
-                <button type="submit" class="btn btn-danger">Hentikan Streaming</button>
+                <button type="submit" class="btn btn-danger" @if (!$isStreaming) disabled @endif>Hentikan Streaming</button>
             </form>
         </div>
     </div>
