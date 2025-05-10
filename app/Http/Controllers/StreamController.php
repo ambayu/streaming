@@ -21,7 +21,13 @@ class StreamController extends Controller
     {
         $setting = auth()->user()->streamSettings;
         $videos = auth()->user()->videos;
-        return view('stream.index', compact('setting', 'videos'));
+
+        // Check if tmux session is running
+        $sessionName = 'stream_' . auth()->id();
+        $tmuxStatus = shell_exec("tmux has-session -t $sessionName 2>/dev/null");
+        $isStreaming = $tmuxStatus !== null ? true : false;
+
+        return view('stream.index', compact('setting', 'videos', 'isStreaming'));
     }
 
     /**
@@ -127,7 +133,14 @@ EOD;
             shell_exec("tmux kill-session -t $sessionName 2>/dev/null"); // Hentikan session sebelumnya
             shell_exec("tmux new-session -d -s $sessionName '$scriptPath'");
 
-            return redirect()->route('stream.index')->with('success', 'Streaming berhasil dimulai!');
+            // Verifikasi apakah tmux session berjalan
+            sleep(1); // Beri waktu singkat untuk tmux memulai
+            $tmuxStatus = shell_exec("tmux has-session -t $sessionName 2>/dev/null");
+            if ($tmuxStatus === null) {
+                return redirect()->route('stream.index')->with('error', 'Gagal memulai tmux session!');
+            }
+
+            return redirect()->route('stream.index')->with('success', 'Streaming berhasil dimulai dan tmux session berjalan!');
         } catch (\Exception $e) {
             return redirect()->route('stream.index')->with('error', 'Gagal memulai streaming: ' . $e->getMessage());
         }
