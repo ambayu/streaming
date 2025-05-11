@@ -210,7 +210,8 @@
                                             </a>
                                         </div>
                                     @else
-                                        <label class="form-label mb-3">Pilih dan urutkan video untuk streaming (seret untuk mengubah urutan):</label>
+                                        <label class="form-label mb-3">Pilih dan urutkan video untuk streaming (seret untuk
+                                            mengubah urutan):</label>
                                         <div class="mb-3">
                                             <div class="form-check form-switch mb-3">
                                                 <input class="form-check-input" type="checkbox" id="selectAllVideos">
@@ -291,7 +292,8 @@
 
         .video-card {
             transition: transform 0.2s, box-shadow 0.2s;
-            cursor: move; /* Mengubah kursor untuk drag */
+            cursor: move;
+            /* Mengubah kursor untuk drag */
         }
 
         .video-card:hover {
@@ -426,6 +428,8 @@
                         return;
                     }
 
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute(
+                        'content');
                     if (!csrfToken) {
                         console.error('CSRF token missing');
                         alert('Token CSRF tidak ditemukan.');
@@ -436,32 +440,34 @@
                     console.log('Fetch URL:', '{{ route('stream.updateOrder') }}');
                     console.log('Sending order:', orderedVideos);
                     fetch('{{ route('stream.updateOrder') }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': csrfToken
-                        },
-                        body: JSON.stringify({ order: orderedVideos })
-                    })
-                    .then(response => {
-                        console.log('Response status:', response.status);
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Save order response:', data);
-                        if (!data.success) {
-                            alert('Gagal menyimpan urutan: ' + data.message);
-                        } else {
-                            alert('Urutan video berhasil disimpan!');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error saving order:', error);
-                        alert('Gagal menyimpan urutan video: ' + error.message);
-                    });
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken
+                            },
+                            body: JSON.stringify({
+                                order: orderedVideos
+                            })
+                        })
+                        .then(response => {
+                            console.log('Response status:', response.status);
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log('Save order response:', data);
+                            if (!data.success) {
+                                alert('Gagal menyimpan urutan: ' + data.message);
+                            } else {
+                                alert('Urutan video berhasil disimpan!');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error saving order:', error);
+                            alert('Gagal menyimpan urutan video: ' + error.message);
+                        });
 
                     // Perbarui DOM dengan input baru
                     const existingCheckboxes = document.querySelectorAll('input[name="videos[]"]');
@@ -555,4 +561,3 @@
         });
     </script>
 @endsection
-
