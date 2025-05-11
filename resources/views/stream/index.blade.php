@@ -1,4 +1,3 @@
-```blade
 @extends('layouts.app')
 
 @section('content')
@@ -211,7 +210,8 @@
                                             </a>
                                         </div>
                                     @else
-                                        <label class="form-label mb-3">Pilih dan urutkan video untuk streaming (seret untuk mengubah urutan):</label>
+                                        <label class="form-label mb-3">Pilih dan urutkan video untuk streaming (seret untuk
+                                            mengubah urutan):</label>
                                         <div class="mb-3">
                                             <div class="form-check form-switch mb-3">
                                                 <input class="form-check-input" type="checkbox" id="selectAllVideos">
@@ -292,7 +292,8 @@
 
         .video-card {
             transition: transform 0.2s, box-shadow 0.2s;
-            cursor: move; /* Mengubah kursor untuk drag */
+            cursor: move;
+            /* Mengubah kursor untuk drag */
         }
 
         .video-card:hover {
@@ -424,7 +425,8 @@
                         input.type = 'checkbox';
                         input.name = 'videos[]';
                         input.value = videoId;
-                        input.checked = items[index].querySelector('input[name="videos[]"]').checked;
+                        input.checked = items[index].querySelector('input[name="videos[]"]')
+                            .checked;
                         input.style.display = 'none';
                         form.appendChild(input);
                     });
@@ -486,4 +488,3 @@
         });
     </script>
 @endsection
-
