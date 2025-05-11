@@ -1,3 +1,4 @@
+```blade
 @extends('layouts.app')
 
 @section('content')
@@ -395,14 +396,9 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const selectAllCheckbox = document.getElementById('selectAllVideos');
+            const videoCheckboxes = document.querySelectorAll('input[name="videos[]"]');
             const videoList = document.getElementById('videoList');
             const form = document.getElementById('streamForm');
-
-            // Store initial checked states
-            let checkedVideos = new Map();
-            document.querySelectorAll('input[name="videos[]"]').forEach(checkbox => {
-                checkedVideos.set(checkbox.value, checkbox.checked);
-            });
 
             // Inisialisasi SortableJS
             new Sortable(videoList, {
@@ -414,64 +410,32 @@
                     // Perbarui urutan input videos[]
                     const items = videoList.querySelectorAll('.col');
                     const orderedVideos = Array.from(items).map(item => {
-                        return item.getAttribute('data-id');
+                        const checkbox = item.querySelector('input[name="videos[]"]');
+                        return checkbox.value;
                     });
                     console.log('New video order:', orderedVideos);
 
-                    // Simpan urutan ke server
-                    fetch('{{ route('stream.updateOrder') }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                        },
-                        body: JSON.stringify({ order: orderedVideos })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Save order response:', data);
-                        if (!data.success) {
-                            alert('Gagal menyimpan urutan: ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error saving order:', error);
-                        alert('Gagal menyimpan urutan video.');
+                    // Perbarui input videos[] dalam form
+                    videoCheckboxes.forEach(checkbox => {
+                        checkbox.remove();
                     });
-
-                    // Perbarui DOM dengan input baru
-                    const existingCheckboxes = document.querySelectorAll('input[name="videos[]"]');
-                    existingCheckboxes.forEach(checkbox => checkbox.remove());
-
-                    items.forEach((item, index) => {
-                        const videoId = orderedVideos[index];
+                    orderedVideos.forEach((videoId, index) => {
                         const input = document.createElement('input');
                         input.type = 'checkbox';
                         input.name = 'videos[]';
                         input.value = videoId;
-                        input.id = 'video_' + videoId;
-                        input.className = 'form-check-input';
-                        input.checked = checkedVideos.get(videoId) || false;
-                        item.querySelector('.video-overlay .form-check').appendChild(input);
+                        input.checked = items[index].querySelector('input[name="videos[]"]').checked;
+                        input.style.display = 'none';
+                        form.appendChild(input);
                     });
                 }
             });
 
             // Pilih semua video
             selectAllCheckbox.addEventListener('change', function() {
-                const videoCheckboxes = document.querySelectorAll('input[name="videos[]"]');
                 videoCheckboxes.forEach(checkbox => {
                     checkbox.checked = selectAllCheckbox.checked;
-                    checkedVideos.set(checkbox.value, checkbox.checked);
                 });
-            });
-
-            // Update checkedVideos on checkbox change
-            videoList.addEventListener('change', function(e) {
-                if (e.target.matches('input[name="videos[]"]')) {
-                    checkedVideos.set(e.target.value, e.target.checked);
-                    console.log('Updated checked videos:', Array.from(checkedVideos.entries()));
-                }
             });
 
             // Debugging collapse buttons
@@ -479,6 +443,7 @@
                 console.log('Collapse button initialized:', button);
                 const target = document.querySelector(button.getAttribute('data-bs-target'));
 
+                // Tambahkan event listener untuk status collapse
                 target.addEventListener('shown.bs.collapse', () => {
                     button.classList.remove('collapsed');
                     console.log('Collapse shown:', button.getAttribute('data-bs-target'));
@@ -514,18 +479,11 @@
                     if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
                         const checkbox = this.querySelector('input[type="checkbox"]');
                         checkbox.checked = !checkbox.checked;
-                        checkedVideos.set(checkbox.value, checkbox.checked);
-                        console.log('Video card toggled:', checkbox.value, checkbox.checked);
+                        console.log('Video card toggled:', checkbox.value);
                     }
                 });
-            });
-
-            // Debug form submission
-            form.addEventListener('submit', function(e) {
-                const formData = new FormData(form);
-                const selectedVideos = formData.getAll('videos[]');
-                console.log('Form submitted with videos:', selectedVideos);
             });
         });
     </script>
 @endsection
+
