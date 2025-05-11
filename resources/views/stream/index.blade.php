@@ -198,7 +198,7 @@
                             <h3 class="h5 mb-0"><i class="fas fa-video me-2"></i>Pilih Video untuk Streaming</h3>
                         </div>
                         <div class="card-body">
-                            <form action="{{ route('stream.start') }}" method="POST" id="streamForm">
+                            <form action="{{ route('stream.start') }}" method="POST">
                                 @csrf
                                 <div class="mb-3">
                                     @if ($videos->isEmpty())
@@ -210,8 +210,7 @@
                                             </a>
                                         </div>
                                     @else
-                                        <label class="form-label mb-3">Pilih dan urutkan video untuk streaming (seret untuk
-                                            mengubah urutan):</label>
+                                        <label class="form-label mb-3">Pilih satu atau lebih video untuk streaming:</label>
                                         <div class="mb-3">
                                             <div class="form-check form-switch mb-3">
                                                 <input class="form-check-input" type="checkbox" id="selectAllVideos">
@@ -219,9 +218,9 @@
                                                     Video</label>
                                             </div>
                                         </div>
-                                        <div class="row row-cols-1 row-cols-md-4 g-4 sortable" id="videoList">
+                                        <div class="row row-cols-1 row-cols-md-4 g-4">
                                             @foreach ($videos as $video)
-                                                <div class="col" data-id="{{ $video->id }}">
+                                                <div class="col">
                                                     <div class="card h-100 shadow-sm video-card">
                                                         <div class="card-img-top video-thumbnail">
                                                             <video class="w-100" controls>
@@ -292,8 +291,7 @@
 
         .video-card {
             transition: transform 0.2s, box-shadow 0.2s;
-            cursor: move;
-            /* Mengubah kursor untuk drag */
+            cursor: pointer;
         }
 
         .video-card:hover {
@@ -367,21 +365,6 @@
             cursor: pointer;
         }
 
-        /* Styling untuk sortable */
-        .sortable .col {
-            transition: all 0.2s ease;
-        }
-
-        .sortable .col.sortable-chosen {
-            opacity: 0.7;
-            transform: scale(1.05);
-        }
-
-        .sortable .col.sortable-ghost {
-            opacity: 0.3;
-            border: 2px dashed #007bff;
-        }
-
         /* Responsif untuk layar kecil */
         @media (max-width: 767px) {
             .row>.col-md-6 {
@@ -392,48 +375,11 @@
 @endsection
 
 @section('scripts')
-    <!-- SortableJS -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const selectAllCheckbox = document.getElementById('selectAllVideos');
             const videoCheckboxes = document.querySelectorAll('input[name="videos[]"]');
-            const videoList = document.getElementById('videoList');
-            const form = document.getElementById('streamForm');
 
-            // Inisialisasi SortableJS
-            new Sortable(videoList, {
-                animation: 150,
-                ghostClass: 'sortable-ghost',
-                chosenClass: 'sortable-chosen',
-                handle: '.video-card',
-                onEnd: function(evt) {
-                    // Perbarui urutan input videos[]
-                    const items = videoList.querySelectorAll('.col');
-                    const orderedVideos = Array.from(items).map(item => {
-                        const checkbox = item.querySelector('input[name="videos[]"]');
-                        return checkbox.value;
-                    });
-                    console.log('New video order:', orderedVideos);
-
-                    // Perbarui input videos[] dalam form
-                    videoCheckboxes.forEach(checkbox => {
-                        checkbox.remove();
-                    });
-                    orderedVideos.forEach((videoId, index) => {
-                        const input = document.createElement('input');
-                        input.type = 'checkbox';
-                        input.name = 'videos[]';
-                        input.value = videoId;
-                        input.checked = items[index].querySelector('input[name="videos[]"]')
-                            .checked;
-                        input.style.display = 'none';
-                        form.appendChild(input);
-                    });
-                }
-            });
-
-            // Pilih semua video
             selectAllCheckbox.addEventListener('change', function() {
                 videoCheckboxes.forEach(checkbox => {
                     checkbox.checked = selectAllCheckbox.checked;
@@ -488,3 +434,4 @@
         });
     </script>
 @endsection
+
