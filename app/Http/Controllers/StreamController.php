@@ -88,7 +88,7 @@ class StreamController extends Controller
             }
 
             // Prepare paths
-            $scriptPath = base_path('scripts/stream_' . auth()->id() . '.js');
+            $scriptPath = base_path('scripts/stream_' . auth()->id() . '.sh');
             $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
             $youtubeKey = $setting->youtube_key;
 
@@ -109,100 +109,32 @@ class StreamController extends Controller
                 $videoPaths[] = $path;
             }
 
-            // Konversi ke JSON
-            $videoPathsJson = json_encode($videoPaths);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new \Exception("Gagal memproses daftar video: " . json_last_error_msg());
-            }
+            // Buat string daftar video untuk script
+            $videoList = implode(' ', array_map('escapeshellarg', $videoPaths));
 
-            // Buat script Node.js
+            // Buat script shell
             $scriptContent = <<<EOD
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+#!/bin/bash
 
-// Config
-const YT_KEY = "$youtubeKey";
-const LOG_FILE = "$logFile";
-const VIDEOS = $videoPathsJson;
+LOGFILE="$logFile"
+YOUTUBE_KEY="$youtubeKey"
+VIDEOS=($videoList)
 
-// Logging function
-function log(message) {
-    const timestamp = new Date().toISOString();
-    const logMessage = `[\${timestamp}] \${message}\n`;
+while true; do
+  for f in "\${VIDEOS[@]}"; do
+    echo "\$(date): Streaming \$f" >> "\$LOGFILE"
 
-    try {
-        fs.appendFileSync(LOG_FILE, logMessage);
-    } catch (err) {
-        console.error('Gagal menulis log:', err);
-    }
-}
+    ffmpeg -re -i "\$f" -c:v copy -c:a copy -f flv "rtmp://a.rtmp.youtube.com/live2/\$YOUTUBE_KEY"
 
-// Stream video function
-function streamVideo(videoPath) {
-    return new Promise((resolve, reject) => {
-        if (!fs.existsSync(videoPath)) {
-            log(`ERROR: File \${videoPath} tidak ditemukan`);
-            return reject(new Error('File tidak ditemukan'));
-        }
-
-        log(`Memulai streaming \${path.basename(videoPath)}`);
-
-        const ffmpegCmd = `ffmpeg -re -i "\${videoPath}" \\
-            -c:v copy -c:a copy \\
-            -f flv "rtmp://a.rtmp.youtube.com/live2/\${YT_KEY}"`;
-
-        const child = exec(ffmpegCmd, (error, stdout, stderr) => {
-            if (error) {
-                log(`ERROR streaming \${path.basename(videoPath)}: \${error.message}`);
-                if (stderr) log(`FFmpeg Error: \${stderr}`);
-                return reject(error);
-            }
-            log(`SUKSES: Selesai streaming \${path.basename(videoPath)}`);
-            resolve();
-        });
-
-        // Handle process exit
-        child.on('exit', (code) => {
-            if (code !== 0) {
-                log(`WARNING: Proses FFmpeg exit dengan code \${code}`);
-            }
-        });
-    });
-}
-
-// Main function
-async function main() {
-    try {
-        log('=== STARTING STREAMING PROCESS ===');
-        log(`Menggunakan YouTube Key: \${YT_KEY}`);
-        log(`Jumlah video: \${VIDEOS.length}`);
-
-        while (true) {
-            for (const videoPath of VIDEOS) {
-                try {
-                    await streamVideo(videoPath);
-                } catch (err) {
-                    log(`ERROR dalam proses streaming: \${err.message}`);
-                    // Tunggu sebelum mencoba lagi
-                    await new Promise(resolve => setTimeout(resolve, 5000));
-                }
-            }
-
-            log('Menunggu 10 detik sebelum loop berikutnya...');
-            await new Promise(resolve => setTimeout(resolve, 10000));
-        }
-    } catch (err) {
-        log(`FATAL ERROR: \${err.stack}`);
-        process.exit(1);
-    }
-}
-
-// Start the application
-main().catch(err => {
-    log(`Unhandled rejection: \${err.stack}`);
-    process.exit(1);
-});
+    if [ \$? -ne 0 ]; then
+      echo "\$(date): ERROR streaming \$f" >> "\$LOGFILE"
+    else
+      echo "\$(date): Finished \$f" >> "\$LOGFILE"
+    fi
+  done
+  echo "\$(date): Menunggu 10 detik sebelum loop berikutnya..." >> "\$LOGFILE"
+  sleep 10
+done
 EOD;
 
             // Tulis script file dan atur izin
@@ -225,7 +157,7 @@ EOD;
             $env = ['PM2_HOME' => '/var/www/.pm2'];
 
             $process = new Process(
-                [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--no-autorestart'],
+                [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--no-autorestart', '--interpreter', 'bash'],
                 null,
                 $env,
                 null,
@@ -245,7 +177,7 @@ EOD;
             // Log untuk debugging
             $debugLog = [
                 'time' => date('Y-m-d H:i:s'),
-                'command' => implode(' ', [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--no-autorestart']),
+                'command' => implode(' ', [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--no-autorestart', '--interpreter', 'bash']),
                 'output' => $process->getOutput(),
                 'error' => $process->getErrorOutput(),
                 'status_check' => $checkProcess->getOutput(),
