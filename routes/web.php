@@ -14,6 +14,7 @@ Route::middleware('auth')->group(function () {
     Route::post('stream/key', [StreamController::class, 'storeKey'])->name('stream.storeKey');
     Route::post('stream/start', [StreamController::class, 'start'])->name('stream.start');
     Route::post('stream/stop', [StreamController::class, 'stop'])->name('stream.stop');
+    Route::post('/stream/update-order', [StreamController::class, 'updateOrder'])->name('stream.updateOrder');
 });
 
 Route::get('/', fn() => redirect()->route('videos.index'));

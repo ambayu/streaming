@@ -20,7 +20,7 @@ class StreamController extends Controller
     public function index()
     {
         $setting = auth()->user()->streamSettings;
-        $videos = auth()->user()->videos;
+        $videos = auth()->user()->videos()->orderBy('order')->get();
 
         // Cek status PM2 sebagai www-data
         $pm2Name = 'stream_' . auth()->id();
@@ -281,4 +281,25 @@ EOD;
             return redirect()->route('stream.index')->with('error', 'Gagal menghentikan streaming: ' . $e->getMessage());
         }
     }
+
+    public function updateOrder(Request $request)
+    {
+        $request->validate([
+            'order' => 'required|array',
+            'order.*' => 'exists:videos,id',
+        ]);
+
+        try {
+            foreach ($request->order as $index => $videoId) {
+                Video::where('id', $videoId)
+                    ->where('user_id', auth()->id())
+                    ->update(['order' => $index + 1]);
+            }
+
+            return response()->json(['success' => true, 'message' => 'Urutan video berhasil disimpan']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Gagal menyimpan urutan: ' . $e->getMessage()], 500);
+        }
+    }
 }
+
