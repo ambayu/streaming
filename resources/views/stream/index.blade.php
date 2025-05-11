@@ -39,11 +39,17 @@
                         </div>
                     </div>
 
+
+                </div>
+
+                <div class="col-md-6">
                     <!-- PM2 Process Status with Collapse (Default Closed) -->
                     <div class="card mb-4 shadow-sm">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center">
                             <h3 class="h5 mb-0"><i class="fas fa-server me-2"></i>Status Proses PM2</h3>
-                            <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button" data-bs-toggle="collapse" data-bs-target="#pm2StatusCollapse" aria-expanded="false" aria-controls="pm2StatusCollapse">
+                            <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#pm2StatusCollapse" aria-expanded="false"
+                                aria-controls="pm2StatusCollapse">
                                 <i class="fas fa-chevron-down"></i>
                             </button>
                         </div>
@@ -64,12 +70,16 @@
                             @endif
                         </div>
                     </div>
+                </div>
 
+                <div class="col-md-12">
                     <!-- Streaming Logs with Collapse (Default Closed) -->
                     <div class="card mb-4 shadow-sm">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center">
                             <h3 class="h5 mb-0"><i class="fas fa-clipboard-list me-2"></i>Log Streaming</h3>
-                            <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button" data-bs-toggle="collapse" data-bs-target="#streamLogCollapse" aria-expanded="false" aria-controls="streamLogCollapse">
+                            <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#streamLogCollapse" aria-expanded="false"
+                                aria-controls="streamLogCollapse">
                                 <i class="fas fa-chevron-down"></i>
                             </button>
                         </div>
@@ -93,7 +103,7 @@
                 </div>
 
                 <!-- Kolom Kanan: YouTube Stream Key, Video Selection, Stop Streaming -->
-                <div class="col-md-6">
+                <div class="col-md-12">
                     <!-- Error and Success Messages -->
                     @if (session('error'))
                         <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -133,7 +143,8 @@
                                     @error('youtube_key')
                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                     @enderror
-                                    <small class="text-muted">Kunci ini digunakan untuk mengirim video ke YouTube Live</small>
+                                    <small class="text-muted">Kunci ini digunakan untuk mengirim video ke YouTube
+                                        Live</small>
                                 </div>
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-save me-1"></i> Simpan Kunci
@@ -167,21 +178,24 @@
                                                     <div class="card h-100 shadow-sm video-card">
                                                         <div class="card-img-top video-thumbnail">
                                                             <video class="w-100" controls>
-                                                                <source src="{{ Storage::url($video->path) }}" type="video/mp4">
+                                                                <source src="{{ Storage::url($video->path) }}"
+                                                                    type="video/mp4">
                                                                 Browser Anda tidak mendukung video.
                                                             </video>
                                                             <div class="video-overlay">
                                                                 <div class="form-check form-switch">
                                                                     <input type="checkbox" name="videos[]"
                                                                         id="video_{{ $video->id }}"
-                                                                        value="{{ $video->id }}" class="form-check-input">
+                                                                        value="{{ $video->id }}"
+                                                                        class="form-check-input">
                                                                 </div>
                                                             </div>
                                                         </div>
                                                         <div class="card-body">
                                                             <h5 class="card-title text-truncate">{{ $video->title }}</h5>
                                                             <p class="card-text text-muted small">
-                                                                <i class="far fa-file me-1"></i> {{ basename($video->path) }}
+                                                                <i class="far fa-file me-1"></i>
+                                                                {{ basename($video->path) }}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -213,7 +227,8 @@
                             <form action="{{ route('stream.stop') }}" method="POST">
                                 @csrf
                                 <div class="d-grid">
-                                    <button type="submit" class="btn btn-danger btn-lg" @if (!$isStreaming) disabled @endif>
+                                    <button type="submit" class="btn btn-danger btn-lg"
+                                        @if (!$isStreaming) disabled @endif>
                                         <i class="fas fa-stop-circle me-1"></i> Hentikan Streaming
                                     </button>
                                 </div>
@@ -327,7 +342,7 @@
 
         /* Responsif untuk layar kecil */
         @media (max-width: 767px) {
-            .row > .col-md-6 {
+            .row>.col-md-6 {
                 margin-bottom: 1.5rem;
             }
         }
