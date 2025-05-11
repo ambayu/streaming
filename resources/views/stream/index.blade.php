@@ -1,3 +1,4 @@
+```blade
 @extends('layouts.app')
 
 @section('content')
@@ -6,235 +7,223 @@
             <h1 class="h4 mb-0"><i class="fas fa-broadcast-tower me-2"></i>Manajemen Streaming Langsung</h1>
         </div>
         <div class="card-body">
-            <!-- Streaming Status Card -->
-            <div class="card mb-4 shadow-sm">
-                <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <h3 class="h5 mb-0"><i class="fas fa-info-circle me-2"></i>Status Streaming</h3>
-                    <span class="badge bg-{{ $isStreaming ? 'success' : 'secondary' }}">
-                        {{ $isStreaming ? 'AKTIF' : 'NON-AKTIF' }}
-                    </span>
-                </div>
-                <div class="card-body">
-                    @if ($isStreaming)
-                        <div class="alert alert-success d-flex align-items-center" role="alert">
-                            <div class="me-3">
-                                <i class="fas fa-circle-play fa-2x"></i>
-                            </div>
-                            <div>
-                                <h4 class="alert-heading mb-1">Streaming Aktif!</h4>
-                                <p class="mb-0">Proses streaming sedang berjalan dengan lancar.</p>
-                            </div>
+            <div class="row">
+                <!-- Kolom Kiri: Status Streaming, PM2 Status, Log Stream -->
+                <div class="col-md-6">
+                    <!-- Streaming Status Card -->
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-light">
+                            <h3 class="h5 mb-0"><i class="fas fa-info-circle me-2"></i>Status Streaming</h3>
                         </div>
-                    @else
-                        <div class="alert alert-secondary d-flex align-items-center" role="alert">
-                            <div class="me-3">
-                                <i class="fas fa-circle-stop fa-2x"></i>
-                            </div>
-                            <div>
-                                <h4 class="alert-heading mb-1">Streaming Tidak Aktif</h4>
-                                <p class="mb-0">Tidak ada streaming yang sedang berlangsung.</p>
-                            </div>
-                        </div>
-                    @endif
-                </div>
-            </div>
-
-            <!-- PM2 Process Status with Collapse -->
-            <div class="card mb-4 shadow-sm">
-                <div class="card-header bg-light d-flex justify-content-between align-items-center"
-                     data-bs-toggle="collapse" href="#pm2StatusCollapse" role="button">
-                    <h3 class="h5 mb-0"><i class="fas fa-server me-2"></i>Status Proses PM2</h3>
-                    <i class="fas fa-chevron-down transition-rotate"></i>
-                </div>
-                <div class="collapse show" id="pm2StatusCollapse">
-                    <div class="card-body">
-                        @if (!empty($pm2Status))
-                            <div class="terminal-container bg-dark text-light p-3 rounded">
-                                <div class="terminal-header mb-2 d-flex justify-content-between align-items-center">
-                                    <span class="text-muted">PM2 Process List</span>
-                                    <span class="badge bg-primary">Live</span>
-                                </div>
-                                <pre class="mb-0 terminal-content">{{ $pm2Status }}</pre>
-                            </div>
-                        @else
-                            <div class="text-center py-4">
-                                <i class="fas fa-server fa-3x text-muted mb-3"></i>
-                                <p class="text-muted">Tidak ada proses PM2 yang sedang berjalan</p>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            </div>
-
-            <!-- Streaming Logs with Collapse -->
-            <div class="card mb-4 shadow-sm">
-                <div class="card-header bg-light d-flex justify-content-between align-items-center"
-                     data-bs-toggle="collapse" href="#streamLogCollapse" role="button">
-                    <h3 class="h5 mb-0"><i class="fas fa-clipboard-list me-2"></i>Log Streaming</h3>
-                    <i class="fas fa-chevron-down transition-rotate"></i>
-                </div>
-                <div class="collapse show" id="streamLogCollapse">
-                    <div class="card-body">
-                        @if ($isStreaming && !empty($streamLog))
-                            <div class="terminal-container bg-dark text-light p-3 rounded">
-                                <div class="terminal-header mb-2 d-flex justify-content-between align-items-center">
-                                    <span class="text-muted">Live Streaming Logs</span>
-                                    <span class="badge bg-success">Active</span>
-                                </div>
-                                <pre class="mb-0 terminal-content" style="max-height: 300px; overflow-y: auto;">{{ $streamLog }}</pre>
-                            </div>
-                        @else
-                            <div class="text-center py-4">
-                                <i class="fas fa-clipboard fa-3x text-muted mb-3"></i>
-                                <p class="text-muted">Tidak ada log streaming yang tersedia</p>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            </div>
-
-            <!-- Error Messages -->
-            @if (session('error'))
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Terjadi Kesalahan:</strong> {{ session('error') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            @endif
-
-            <!-- YouTube Stream Key Section -->
-            <div class="card mb-4 shadow-sm">
-                <div class="card-header bg-light">
-                    <h3 class="h5 mb-0"><i class="fab fa-youtube me-2 text-danger"></i>YouTube Stream Key</h3>
-                </div>
-                <div class="card-body">
-                    <form action="{{ route('stream.storeKey') }}" method="POST">
-                        @csrf
-                        <div class="mb-3">
-                            <label for="youtube_key" class="form-label">Kunci Streaming YouTube</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-key"></i></span>
-                                <input type="password" name="youtube_key" id="youtube_key"
-                                    class="form-control @error('youtube_key') is-invalid @enderror"
-                                    value="{{ $setting->youtube_key ?? '' }}" required
-                                    placeholder="Masukkan kunci streaming YouTube">
-                                <button class="btn btn-outline-secondary toggle-password" type="button">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                            @error('youtube_key')
-                                <div class="invalid-feedback d-block">{{ $message }}</div>
-                            @enderror
-                            <small class="text-muted">Kunci ini digunakan untuk mengirim video ke YouTube Live</small>
-                        </div>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-1"></i> Simpan Kunci
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Video Selection Section -->
-            <div class="card mb-4 shadow-sm">
-                <div class="card-header bg-light">
-                    <h3 class="h5 mb-0"><i class="fas fa-video me-2"></i>Pilih Video untuk Streaming</h3>
-                </div>
-                <div class="card-body">
-                    <form action="{{ route('stream.start') }}" method="POST">
-                        @csrf
-                        <div class="mb-3">
-                            @if ($videos->isEmpty())
-                                <div class="text-center py-4">
-                                    <i class="fas fa-video-slash fa-3x text-muted mb-3"></i>
-                                    <p class="text-muted">Tidak ada video yang tersedia untuk streaming</p>
-                                    <a href="{{ route('videos.create') }}" class="btn btn-primary">
-                                        <i class="fas fa-upload me-1"></i> Upload Video Baru
-                                    </a>
+                        <div class="card-body">
+                            @if ($isStreaming)
+                                <div class="alert alert-success d-flex align-items-center" role="alert">
+                                    <div class="me-3">
+                                        <i class="fas fa-circle-play fa-2x"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="alert-heading mb-1">Streaming Aktif!</h4>
+                                        <p class="mb-0">Proses streaming sedang berjalan dengan lancar.</p>
+                                    </div>
                                 </div>
                             @else
-                                <label class="form-label mb-3">Pilih satu atau lebih video untuk streaming:</label>
-                                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-                                    @foreach ($videos as $video)
-                                        <div class="col">
-                                            <div class="card h-100 shadow-sm video-card">
-                                                <div class="card-img-top video-thumbnail position-relative">
-                                                    <video class="w-100" controls controlsList="nodownload">
-                                                        <source src="{{ Storage::url($video->path) }}" type="video/mp4">
-                                                    </video>
-                                                    <div class="video-controls-overlay">
-                                                        <div class="form-check form-check-lg">
-                                                            <input type="checkbox" name="videos[]"
-                                                                   id="video_{{ $video->id }}"
-                                                                   value="{{ $video->id }}"
-                                                                   class="form-check-input position-static">
+                                <div class="alert alert-secondary d-flex align-items-center" role="alert">
+                                    <div class="me-3">
+                                        <i class="fas fa-circle-stop fa-2x"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="alert-heading mb-1">Streaming Tidak Aktif</h4>
+                                        <p class="mb-0">Tidak ada streaming yang sedang berlangsung.</p>
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- PM2 Process Status with Collapse (Default Closed) -->
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h3 class="h5 mb-0"><i class="fas fa-server me-2"></i>Status Proses PM2</h3>
+                            <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button" data-bs-toggle="collapse" data-bs-target="#pm2StatusCollapse" aria-expanded="false" aria-controls="pm2StatusCollapse">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        <div class="card-body collapse" id="pm2StatusCollapse">
+                            @if (!empty($pm2Status))
+                                <div class="terminal-container bg-dark text-light p-3 rounded">
+                                    <div class="terminal-header mb-2 d-flex justify-content-between align-items-center">
+                                        <span class="text-muted">PM2 Process List</span>
+                                        <span class="badge bg-primary">Live</span>
+                                    </div>
+                                    <pre class="mb-0 terminal-content">{{ $pm2Status }}</pre>
+                                </div>
+                            @else
+                                <div class="text-center py-4">
+                                    <i class="fas fa-server fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">Tidak ada proses PM2 yang sedang berjalan</p>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- Streaming Logs with Collapse (Default Closed) -->
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h3 class="h5 mb-0"><i class="fas fa-clipboard-list me-2"></i>Log Streaming</h3>
+                            <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button" data-bs-toggle="collapse" data-bs-target="#streamLogCollapse" aria-expanded="false" aria-controls="streamLogCollapse">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        <div class="card-body collapse" id="streamLogCollapse">
+                            @if ($isStreaming && !empty($streamLog))
+                                <div class="terminal-container bg-dark text-light p-3 rounded">
+                                    <div class="terminal-header mb-2 d-flex justify-content-between align-items-center">
+                                        <span class="text-muted">Live Streaming Logs</span>
+                                        <span class="badge bg-success">Active</span>
+                                    </div>
+                                    <pre class="mb-0 terminal-content" style="max-height: 300px; overflow-y: auto;">{{ $streamLog }}</pre>
+                                </div>
+                            @else
+                                <div class="text-center py-4">
+                                    <i class="fas fa-clipboard fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">Tidak ada log streaming yang tersedia</p>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kolom Kanan: YouTube Stream Key, Video Selection, Stop Streaming -->
+                <div class="col-md-6">
+                    <!-- Error and Success Messages -->
+                    @if (session('error'))
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Terjadi Kesalahan:</strong> {{ session('error') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    @endif
+                    @if (session('success'))
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Berhasil:</strong> {{ session('success') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    @endif
+
+                    <!-- YouTube Stream Key Section -->
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-light">
+                            <h3 class="h5 mb-0"><i class="fab fa-youtube me-2 text-danger"></i>YouTube Stream Key</h3>
+                        </div>
+                        <div class="card-body">
+                            <form action="{{ route('stream.storeKey') }}" method="POST">
+                                @csrf
+                                <div class="mb-3">
+                                    <label for="youtube_key" class="form-label">Kunci Streaming YouTube</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-key"></i></span>
+                                        <input type="password" name="youtube_key" id="youtube_key"
+                                            class="form-control @error('youtube_key') is-invalid @enderror"
+                                            value="{{ $setting->youtube_key ?? '' }}" required
+                                            placeholder="Masukkan kunci streaming YouTube">
+                                        <button class="btn btn-outline-secondary toggle-password" type="button">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    @error('youtube_key')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
+                                    <small class="text-muted">Kunci ini digunakan untuk mengirim video ke YouTube Live</small>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i> Simpan Kunci
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Video Selection Section -->
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-light">
+                            <h3 class="h5 mb-0"><i class="fas fa-video me-2"></i>Pilih Video untuk Streaming</h3>
+                        </div>
+                        <div class="card-body">
+                            <form action="{{ route('stream.start') }}" method="POST">
+                                @csrf
+                                <div class="mb-3">
+                                    @if ($videos->isEmpty())
+                                        <div class="text-center py-4">
+                                            <i class="fas fa-video-slash fa-3x text-muted mb-3"></i>
+                                            <p class="text-muted">Tidak ada video yang tersedia untuk streaming</p>
+                                            <a href="{{ route('videos.create') }}" class="btn btn-primary">
+                                                <i class="fas fa-upload me-1"></i> Upload Video Baru
+                                            </a>
+                                        </div>
+                                    @else
+                                        <label class="form-label mb-3">Pilih satu atau lebih video untuk streaming:</label>
+                                        <div class="row row-cols-1 row-cols-md-2 g-4">
+                                            @foreach ($videos as $video)
+                                                <div class="col">
+                                                    <div class="card h-100 shadow-sm video-card">
+                                                        <div class="card-img-top video-thumbnail">
+                                                            <video class="w-100" controls>
+                                                                <source src="{{ Storage::url($video->path) }}" type="video/mp4">
+                                                                Browser Anda tidak mendukung video.
+                                                            </video>
+                                                            <div class="video-overlay">
+                                                                <div class="form-check form-switch">
+                                                                    <input type="checkbox" name="videos[]"
+                                                                        id="video_{{ $video->id }}"
+                                                                        value="{{ $video->id }}" class="form-check-input">
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="card-body">
+                                                            <h5 class="card-title text-truncate">{{ $video->title }}</h5>
+                                                            <p class="card-text text-muted small">
+                                                                <i class="far fa-file me-1"></i> {{ basename($video->path) }}
+                                                            </p>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="card-body">
-                                                    <h5 class="card-title text-truncate">{{ $video->title }}</h5>
-                                                    <div class="d-flex justify-content-between align-items-center">
-                                                        <small class="text-muted">
-                                                            <i class="far fa-file me-1"></i> {{ basename($video->path) }}
-                                                        </small>
-                                                        <button type="button" class="btn btn-sm btn-outline-primary preview-btn"
-                                                                data-video="{{ Storage::url($video->path) }}">
-                                                            <i class="fas fa-expand"></i> Fullscreen
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            @endforeach
                                         </div>
-                                    @endforeach
+                                        @error('videos')
+                                            <div class="text-danger mt-2">{{ $message }}</div>
+                                        @enderror
+                                    @endif
                                 </div>
-                                @error('videos')
-                                    <div class="text-danger mt-2">{{ $message }}</div>
-                                @enderror
-                            @endif
+                                @if (!$videos->isEmpty())
+                                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                        <button type="submit" class="btn btn-success btn-lg">
+                                            <i class="fas fa-play-circle me-1"></i> Mulai Streaming
+                                        </button>
+                                    </div>
+                                @endif
+                            </form>
                         </div>
-                        @if (!$videos->isEmpty())
-                            <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                                <button type="submit" class="btn btn-success btn-lg">
-                                    <i class="fas fa-play-circle me-1"></i> Mulai Streaming
-                                </button>
-                            </div>
-                        @endif
-                    </form>
-                </div>
-            </div>
+                    </div>
 
-            <!-- Stop Streaming Section -->
-            <div class="card shadow-sm">
-                <div class="card-header bg-light">
-                    <h3 class="h5 mb-0"><i class="fas fa-stop-circle me-2"></i>Hentikan Streaming</h3>
-                </div>
-                <div class="card-body">
-                    <form action="{{ route('stream.stop') }}" method="POST">
-                        @csrf
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-danger btn-lg" @if (!$isStreaming) disabled @endif>
-                                <i class="fas fa-stop-circle me-1"></i> Hentikan Streaming
-                            </button>
+                    <!-- Stop Streaming Section -->
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-light">
+                            <h3 class="h5 mb-0"><i class="fas fa-stop-circle me-2"></i>Hentikan Streaming</h3>
                         </div>
-                        @if (!$isStreaming)
-                            <p class="text-muted text-center mt-2 mb-0">Tidak ada streaming yang aktif</p>
-                        @endif
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal for Fullscreen Video Preview -->
-    <div class="modal fade" id="videoPreviewModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered">
-            <div class="modal-content bg-dark">
-                <div class="modal-header border-0">
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-0">
-                    <video id="previewVideo" controls class="w-100" style="max-height: 80vh;">
-                        Your browser does not support the video tag.
-                    </video>
+                        <div class="card-body">
+                            <form action="{{ route('stream.stop') }}" method="POST">
+                                @csrf
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-danger btn-lg" @if (!$isStreaming) disabled @endif>
+                                        <i class="fas fa-stop-circle me-1"></i> Hentikan Streaming
+                                    </button>
+                                </div>
+                                @if (!$isStreaming)
+                                    <p class="text-muted text-center mt-2 mb-0">Tidak ada streaming yang aktif</p>
+                                @endif
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -247,6 +236,7 @@
             border: 1px solid #444;
             border-radius: 5px;
             position: relative;
+            transition: all 0.3s ease;
         }
 
         .terminal-header {
@@ -265,63 +255,82 @@
         }
 
         .video-card {
-            transition: transform 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s;
             cursor: pointer;
         }
 
         .video-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
         }
 
         .video-thumbnail {
             position: relative;
             overflow: hidden;
-            height: 180px;
+            height: 160px;
             background-color: #000;
         }
 
         .video-thumbnail video {
             height: 100%;
-            width: 100%;
-            object-fit: contain;
-            background-color: #000;
+            object-fit: cover;
+            opacity: 0.9;
+            transition: opacity 0.3s;
         }
 
-        .video-controls-overlay {
+        .video-card:hover .video-thumbnail video {
+            opacity: 1;
+        }
+
+        .video-overlay {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 10;
-            background: rgba(0,0,0,0.5);
-            padding: 5px;
-            border-radius: 4px;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-start;
+            padding: 10px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .video-card:hover .video-overlay {
+            opacity: 1;
         }
 
         .form-check-input {
             transform: scale(1.3);
-            cursor: pointer;
         }
 
         .toggle-password {
             cursor: pointer;
         }
 
-        .transition-rotate {
-            transition: transform 0.3s ease;
+        /* Styling untuk collapse */
+        .collapse-toggle-btn {
+            transition: transform 0.3s;
         }
 
-        .collapsed .transition-rotate {
+        .collapse-toggle-btn .fas {
+            transition: transform 0.3s;
+        }
+
+        .collapse-toggle-btn.collapsed .fas {
             transform: rotate(-90deg);
         }
 
-        .card-header[aria-expanded="true"] .transition-rotate {
-            transform: rotate(0deg);
+        .card-header {
+            cursor: pointer;
         }
 
-        .preview-btn {
-            position: relative;
-            z-index: 2;
+        /* Responsif untuk layar kecil */
+        @media (max-width: 767px) {
+            .row > .col-md-6 {
+                margin-bottom: 1.5rem;
+            }
         }
     </style>
 @endsection
@@ -332,7 +341,6 @@
         document.querySelector('.toggle-password').addEventListener('click', function() {
             const passwordInput = document.getElementById('youtube_key');
             const icon = this.querySelector('i');
-
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
                 icon.classList.remove('fa-eye');
@@ -347,34 +355,19 @@
         // Video card selection
         document.querySelectorAll('.video-card').forEach(card => {
             card.addEventListener('click', function(e) {
-                // Don't toggle if clicked on video controls or checkbox
-                if (!e.target.classList.contains('form-check-input') &&
-                    e.target.tagName !== 'VIDEO' &&
-                    e.target.tagName !== 'BUTTON') {
+                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
                     const checkbox = this.querySelector('input[type="checkbox"]');
                     checkbox.checked = !checkbox.checked;
                 }
             });
         });
 
-        // Fullscreen video preview
-        document.querySelectorAll('.preview-btn').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                const videoSrc = this.getAttribute('data-video');
-                const modal = new bootstrap.Modal(document.getElementById('videoPreviewModal'));
-                const videoElement = document.getElementById('previewVideo');
-
-                videoElement.src = videoSrc;
-                modal.show();
+        // Toggle collapse icon
+        document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
+            button.addEventListener('click', function() {
+                this.classList.toggle('collapsed');
             });
-        });
-
-        // Reset video when modal closes
-        document.getElementById('videoPreviewModal').addEventListener('hidden.bs.modal', function () {
-            const videoElement = document.getElementById('previewVideo');
-            videoElement.pause();
-            videoElement.currentTime = 0;
         });
     </script>
 @endsection
+```
