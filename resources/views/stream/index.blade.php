@@ -397,6 +397,7 @@
             const selectAllCheckbox = document.getElementById('selectAllVideos');
             const videoList = document.getElementById('videoList');
             const form = document.getElementById('streamForm');
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
             // Store initial checked states
             let checkedVideos = new Map();
@@ -413,30 +414,53 @@
                 onEnd: function(evt) {
                     // Perbarui urutan input videos[]
                     const items = videoList.querySelectorAll('.col');
-                    const orderedVideos = Array.from(items).map(item => {
-                        return item.getAttribute('data-id');
-                    });
+                    const orderedVideos = Array.from(items)
+                        .map(item => item.getAttribute('data-id'))
+                        .filter(id => id);
                     console.log('New video order:', orderedVideos);
 
+                    // Validasi sebelum mengirim
+                    if (!orderedVideos.length) {
+                        console.error('No videos to reorder');
+                        alert('Tidak ada video untuk diurutkan.');
+                        return;
+                    }
+
+                    if (!csrfToken) {
+                        console.error('CSRF token missing');
+                        alert('Token CSRF tidak ditemukan.');
+                        return;
+                    }
+
                     // Simpan urutan ke server
+                    console.log('Fetch URL:', '{{ route('stream.updateOrder') }}');
+                    console.log('Sending order:', orderedVideos);
                     fetch('{{ route('stream.updateOrder') }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            'X-CSRF-TOKEN': csrfToken
                         },
                         body: JSON.stringify({ order: orderedVideos })
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         console.log('Save order response:', data);
                         if (!data.success) {
                             alert('Gagal menyimpan urutan: ' + data.message);
+                        } else {
+                            alert('Urutan video berhasil disimpan!');
                         }
                     })
                     .catch(error => {
                         console.error('Error saving order:', error);
-                        alert('Gagal menyimpan urutan video.');
+                        alert('Gagal menyimpan urutan video: ' + error.message);
                     });
 
                     // Perbarui DOM dengan input baru
@@ -445,14 +469,16 @@
 
                     items.forEach((item, index) => {
                         const videoId = orderedVideos[index];
-                        const input = document.createElement('input');
-                        input.type = 'checkbox';
-                        input.name = 'videos[]';
-                        input.value = videoId;
-                        input.id = 'video_' + videoId;
-                        input.className = 'form-check-input';
-                        input.checked = checkedVideos.get(videoId) || false;
-                        item.querySelector('.video-overlay .form-check').appendChild(input);
+                        if (videoId) {
+                            const input = document.createElement('input');
+                            input.type = 'checkbox';
+                            input.name = 'videos[]';
+                            input.value = videoId;
+                            input.id = 'video_' + videoId;
+                            input.className = 'form-check-input';
+                            input.checked = checkedVideos.get(videoId) || false;
+                            item.querySelector('.video-overlay .form-check').appendChild(input);
+                        }
                     });
                 }
             });
@@ -529,3 +555,4 @@
         });
     </script>
 @endsection
+

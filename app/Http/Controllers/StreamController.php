@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Session;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
+use Illuminate\Support\Facades\Log;
 
 class StreamController extends Controller
 {
@@ -284,6 +285,8 @@ EOD;
 
     public function updateOrder(Request $request)
     {
+        Log::info('Update order request:', $request->all());
+
         $request->validate([
             'order' => 'required|array',
             'order.*' => 'exists:videos,id',
@@ -291,15 +294,16 @@ EOD;
 
         try {
             foreach ($request->order as $index => $videoId) {
+                Log::info('Updating video ID:', ['id' => $videoId, 'order' => $index + 1]);
                 Video::where('id', $videoId)
                     ->where('user_id', auth()->id())
                     ->update(['order' => $index + 1]);
             }
-
+            Log::info('Video order updated successfully');
             return response()->json(['success' => true, 'message' => 'Urutan video berhasil disimpan']);
         } catch (\Exception $e) {
+            Log::error('Failed to update order:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json(['success' => false, 'message' => 'Gagal menyimpan urutan: ' . $e->getMessage()], 500);
         }
     }
 }
-
