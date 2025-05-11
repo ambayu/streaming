@@ -168,17 +168,29 @@
                 const order = Array.from(videoItems).map(item => item.dataset.id);
                 console.log('New order:', order);
 
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                if (!csrfToken) {
+                    console.error('CSRF token not found');
+                    alert('Token CSRF tidak ditemukan. Silakan muat ulang halaman.');
+                    return;
+                }
+
                 fetch("{{ route('stream.updateOrder') }}", {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                            'X-CSRF-TOKEN': csrfToken
                         },
                         body: JSON.stringify({
                             order
                         })
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         if (data.success) {
                             alert('Urutan video berhasil diperbarui!');
@@ -189,7 +201,7 @@
                     })
                     .catch(error => {
                         console.error('AJAX error:', error);
-                        alert('Terjadi kesalahan saat memperbarui urutan.');
+                        alert('Terjadi kesalahan saat memperbarui urutan: ' + error.message);
                     });
             }
 
