@@ -26,7 +26,7 @@ class StreamController extends Controller
         $pm2Path = '/usr/bin/pm2';
         $env = [
             'PM2_HOME' => '/var/www/.pm2',
-            'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin' // Pastikan bash dan ffmpeg ada di PATH
+            'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'
         ];
 
         $process = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 60);
@@ -34,12 +34,21 @@ class StreamController extends Controller
 
         $isStreaming = $process->isSuccessful() && !empty(trim($process->getOutput()));
 
-        // Ambil status proses PM2 untuk debugging
+        // Ambil status proses PM2
         $pm2StatusProcess = new Process([$pm2Path, 'list'], null, $env, null, 60);
         $pm2StatusProcess->run();
         $pm2Status = $pm2StatusProcess->isSuccessful() ? trim($pm2StatusProcess->getOutput()) : 'Tidak ada proses PM2 aktif';
 
-        return view('stream.index', compact('setting', 'videos', 'isStreaming', 'pm2Status'));
+        // Baca log streaming terbaru
+        $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
+        $streamLog = '';
+        if (file_exists($logFile)) {
+            $streamLog = shell_exec("tail -n 50 " . escapeshellarg($logFile));
+        } else {
+            $streamLog = "Log file tidak ditemukan. Periksa izin atau proses streaming.";
+        }
+
+        return view('stream.index', compact('setting', 'videos', 'isStreaming', 'pm2Status', 'streamLog'));
     }
 
     public function storeKey(Request $request)
@@ -120,7 +129,7 @@ class StreamController extends Controller
             // Buat string daftar video untuk script
             $videoList = implode(' ', array_map('escapeshellarg', $videoPaths));
 
-            // Buat script shell
+            // Buat script shell dengan redireksi output dan -flvflags
             $scriptContent = <<<EOD
 #!/bin/bash
 
@@ -128,11 +137,16 @@ LOGFILE="$logFile"
 YOUTUBE_KEY="$youtubeKey"
 VIDEOS=($videoList)
 
+# Pastikan direktori log dapat ditulis
+mkdir -p "\$(dirname "\$LOGFILE")"
+chown www-data:www-data "\$(dirname "\$LOGFILE")"
+chmod 755 "\$(dirname "\$LOGFILE")"
+
 while true; do
   for f in "\${VIDEOS[@]}"; do
     echo "\$(date): Streaming \$f" >> "\$LOGFILE"
 
-    ffmpeg -re -i "\$f" -c:v copy -c:a copy -f flv "rtmp://a.rtmp.youtube.com/live2/\$YOUTUBE_KEY"
+    ffmpeg -re -i "\$f" -c:v copy -c:a copy -flvflags no_duration_filesize -f flv "rtmp://a.rtmp.youtube.com/live2/\$YOUTUBE_KEY" >> "\$LOGFILE" 2>&1
 
     if [ \$? -ne 0 ]; then
       echo "\$(date): ERROR streaming \$f" >> "\$LOGFILE"
@@ -164,11 +178,11 @@ EOD;
             $pm2Path = '/usr/bin/pm2';
             $env = [
                 'PM2_HOME' => '/var/www/.pm2',
-                'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin' // Pastikan bash dan ffmpeg ada di PATH
+                'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'
             ];
 
             $process = new Process(
-                [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--no-autorestart'],
+                [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--output', $logFile, '--error', $logFile, '--no-autorestart'],
                 null,
                 $env,
                 null,
@@ -181,14 +195,13 @@ EOD;
             }
 
             // Verifikasi proses berjalan
-            sleep(2); // Beri waktu untuk proses start
             $checkProcess = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 60);
             $checkProcess->run();
 
             // Log untuk debugging
             $debugLog = [
                 'time' => date('Y-m-d H:i:s'),
-                'command' => implode(' ', [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--no-autorestart']),
+                'command' => implode(' ', [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--output', $logFile, '--error', $logFile, '--no-autorestart']),
                 'output' => $process->getOutput(),
                 'error' => $process->getErrorOutput(),
                 'status_check' => $checkProcess->getOutput(),
