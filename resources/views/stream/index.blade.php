@@ -172,14 +172,15 @@
                                         </div>
                                     @else
                                         <label class="form-label mb-3">Pilih satu atau lebih video untuk streaming:</label>
-                                        <div class="row row-cols-1 row-cols-md-2 g-4">
-                                            <div class="mb-3">
-                                                <div class="form-check form-switch mb-3">
-                                                    <input class="form-check-input" type="checkbox" id="selectAllVideos">
-                                                    <label class="form-check-label" for="selectAllVideos">Pilih Semua
-                                                        Video</label>
-                                                </div>
+                                        <div class="mb-3">
+                                            <div class="form-check form-switch mb-3">
+                                                <input class="form-check-input" type="checkbox" id="selectAllVideos">
+                                                <label class="form-check-label" for="selectAllVideos">Pilih Semua
+                                                    Video</label>
                                             </div>
+                                        </div>
+                                        <div class="row row-cols-1 row-cols-md-2 g-4">
+
 
                                             @foreach ($videos as $video)
                                                 <div class="col">
