@@ -23,6 +23,26 @@
                                     <div>
                                         <h4 class="alert-heading mb-1">Streaming Aktif!</h4>
                                         <p class="mb-0">Proses streaming sedang berjalan dengan lancar.</p>
+                                        @if ($currentPlaylist)
+                                            <div class="mt-3">
+                                                <h5 class="h6">Daftar Putar:</h5>
+                                                <ol class="list-group list-group-numbered">
+                                                    @foreach ($currentPlaylist as $video)
+                                                        <li
+                                                            class="list-group-item d-flex justify-content-between align-items-start">
+                                                            <div class="ms-2 me-auto">
+                                                                <div class="fw-bold">{{ $video['title'] }}</div>
+                                                                {{ basename($video['path']) }}
+                                                            </div>
+                                                            @if ($loop->first)
+                                                                <span class="badge bg-success rounded-pill">Sedang
+                                                                    Diputar</span>
+                                                            @endif
+                                                        </li>
+                                                    @endforeach
+                                                </ol>
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             @else
@@ -39,11 +59,7 @@
                         </div>
                     </div>
 
-
-                </div>
-
-                <div class="col-md-6">
-                    <!-- PM2 Process Status with Collapse (Default Closed) -->
+                    <!-- PM2 Process Status with Collapse -->
                     <div class="card mb-4 shadow-sm">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center">
                             <h3 class="h5 mb-0"><i class="fas fa-server me-2"></i>Status Proses PM2</h3>
@@ -72,8 +88,8 @@
                     </div>
                 </div>
 
-                <div class="col-md-12">
-                    <!-- Streaming Logs with Collapse (Default Closed) -->
+                <div class="col-md-6">
+                    <!-- Streaming Logs with Collapse -->
                     <div class="card mb-4 shadow-sm">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center">
                             <h3 class="h5 mb-0"><i class="fas fa-clipboard-list me-2"></i>Log Streaming</h3>
@@ -141,6 +157,7 @@
                                         </button>
                                     </div>
                                     @error('youtube_key')
+                                        )
                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                     @enderror
                                     <small class="text-muted">Kunci ini digunakan untuk mengirim video ke YouTube
@@ -159,7 +176,7 @@
                             <h3 class="h5 mb-0"><i class="fas fa-video me-2"></i>Pilih Video untuk Streaming</h3>
                         </div>
                         <div class="card-body">
-                            <form action="{{ route('stream.start') }}" method="POST">
+                            <form action="{{ route('stream.start') }}" method="POST" id="streamForm">
                                 @csrf
                                 <div class="mb-3">
                                     @if ($videos->isEmpty())
@@ -171,7 +188,8 @@
                                             </a>
                                         </div>
                                     @else
-                                        <label class="form-label mb-3">Pilih satu atau lebih video untuk streaming:</label>
+                                        <label class="form-label mb-3">Pilih dan atur urutan video untuk streaming:</label>
+
                                         <div class="mb-3">
                                             <div class="form-check form-switch mb-3">
                                                 <input class="form-check-input" type="checkbox" id="selectAllVideos">
@@ -179,11 +197,10 @@
                                                     Video</label>
                                             </div>
                                         </div>
-                                        <div class="row row-cols-1 row-cols-md-2 g-4">
 
-
+                                        <div class="row row-cols-1 row-cols-md-3 g-4" id="videoContainer">
                                             @foreach ($videos as $video)
-                                                <div class="col-md-2 col-2">
+                                                <div class="col">
                                                     <div class="card h-100 shadow-sm video-card">
                                                         <div class="card-img-top video-thumbnail">
                                                             <video class="w-100" controls>
@@ -192,29 +209,59 @@
                                                                 Browser Anda tidak mendukung video.
                                                             </video>
                                                             <div class="video-overlay">
-                                                                <div class="form-check form-switch">
+                                                                <div class="form-check">
                                                                     <input type="checkbox" name="videos[]"
                                                                         id="video_{{ $video->id }}"
                                                                         value="{{ $video->id }}"
-                                                                        class="form-check-input">
+                                                                        class="form-check-input video-checkbox">
                                                                 </div>
                                                             </div>
                                                         </div>
                                                         <div class="card-body">
                                                             <h5 class="card-title text-truncate">{{ $video->title }}</h5>
-
+                                                            <div
+                                                                class="d-flex justify-content-between align-items-center mt-2">
+                                                                <small class="text-muted">
+                                                                    <i class="far fa-file me-1"></i>
+                                                                    {{ basename($video->path) }}
+                                                                </small>
+                                                                <button type="button"
+                                                                    class="btn btn-sm btn-outline-primary move-up-btn"
+                                                                    data-video-id="{{ $video->id }}">
+                                                                    <i class="fas fa-arrow-up"></i>
+                                                                </button>
+                                                                <button type="button"
+                                                                    class="btn btn-sm btn-outline-primary move-down-btn"
+                                                                    data-video-id="{{ $video->id }}">
+                                                                    <i class="fas fa-arrow-down"></i>
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             @endforeach
                                         </div>
+
+                                        <!-- Hidden input untuk urutan video -->
+                                        <input type="hidden" name="video_order" id="videoOrder" value="">
+
+                                        <div class="mt-4">
+                                            <h5>Daftar Putar:</h5>
+                                            <div class="border p-3 rounded bg-light">
+                                                <ol class="list-group list-group-numbered" id="playlistOrder">
+                                                    <!-- Daftar urutan akan muncul di sini -->
+                                                </ol>
+                                            </div>
+                                        </div>
+
                                         @error('videos')
+                                            )
                                             <div class="text-danger mt-2">{{ $message }}</div>
                                         @enderror
                                     @endif
                                 </div>
                                 @if (!$videos->isEmpty())
-                                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
                                         <button type="submit" class="btn btn-success btn-lg">
                                             <i class="fas fa-play-circle me-1"></i> Mulai Streaming
                                         </button>
@@ -346,6 +393,31 @@
             cursor: pointer;
         }
 
+        /* Style untuk daftar putar */
+        #playlistOrder {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        #playlistOrder li {
+            cursor: move;
+            padding: 8px 12px;
+        }
+
+        #playlistOrder li:hover {
+            background-color: #f8f9fa;
+        }
+
+        .move-up-btn,
+        .move-down-btn {
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         /* Responsif untuk layar kecil */
         @media (max-width: 767px) {
             .row>.col-md-6 {
@@ -356,54 +428,154 @@
 @endsection
 
 @section('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Fungsi untuk update playlist order
+            function updatePlaylistOrder() {
+                const selectedVideos = Array.from(document.querySelectorAll('.video-checkbox:checked'))
+                    .map(checkbox => {
+                        const card = checkbox.closest('.video-card');
+                        return {
+                            id: checkbox.value,
+                            title: card.querySelector('.card-title').textContent,
+                            path: card.querySelector('small').textContent.replace(' ', '') // Remove icon
+                        };
+                    });
+
+                const playlistOrder = document.getElementById('playlistOrder');
+                playlistOrder.innerHTML = '';
+
+                selectedVideos.forEach((video, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-start';
+                    li.dataset.videoId = video.id;
+
+                    li.innerHTML = `
+                <div class="ms-2 me-auto">
+                    <div class="fw-bold">${video.title}</div>
+                    ${video.path}
+                </div>
+                <span class="badge bg-primary rounded-pill">${index + 1}</span>
+            `;
+
+                    playlistOrder.appendChild(li);
+                });
+
+                // Update hidden input dengan urutan video
+                document.getElementById('videoOrder').value = JSON.stringify(selectedVideos.map(v => v.id));
+            }
+
+            // Select all videos
             const selectAllCheckbox = document.getElementById('selectAllVideos');
-            const videoCheckboxes = document.querySelectorAll('input[name="videos[]"]');
+            const videoCheckboxes = document.querySelectorAll('.video-checkbox');
 
             selectAllCheckbox.addEventListener('change', function() {
                 videoCheckboxes.forEach(checkbox => {
                     checkbox.checked = selectAllCheckbox.checked;
                 });
+                updatePlaylistOrder();
             });
-        });
-    </script>
-    <script>
-        // Debugging collapse buttons
-        document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
-            console.log('Collapse button initialized:', button);
-            button.addEventListener('click', function() {
-                console.log('Collapse toggled for:', this.getAttribute('data-bs-target'));
-                this.classList.toggle('collapsed');
-            });
-        });
 
-        // Toggle password visibility
-        document.querySelectorAll('.toggle-password').forEach(button => {
-            console.log('Toggle password button initialized:', button);
-            button.addEventListener('click', function() {
-                const passwordInput = document.getElementById('youtube_key');
-                const icon = this.querySelector('i');
-                console.log('Toggling password visibility');
-                if (passwordInput.type === 'password') {
-                    passwordInput.type = 'text';
-                    icon.classList.remove('fa-eye');
-                    icon.classList.add('fa-eye-slash');
-                } else {
-                    passwordInput.type = 'password';
-                    icon.classList.remove('fa-eye-slash');
-                    icon.classList.add('fa-eye');
+            // Update playlist ketika video dipilih/dibatalkan
+            videoCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updatePlaylistOrder);
+            });
+
+            // Tombol naik/turun urutan video
+            document.querySelectorAll('.move-up-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const videoId = this.dataset.videoId;
+                    const checkbox = document.querySelector(`.video-checkbox[value="${videoId}"]`);
+
+                    if (checkbox && checkbox.checked) {
+                        const currentItem = document.querySelector(
+                            `#playlistOrder li[data-video-id="${videoId}"]`);
+                        if (currentItem && currentItem.previousElementSibling) {
+                            currentItem.parentNode.insertBefore(currentItem, currentItem
+                                .previousElementSibling);
+                            updateHiddenInputOrder();
+                        }
+                    }
+                });
+            });
+
+            document.querySelectorAll('.move-down-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const videoId = this.dataset.videoId;
+                    const checkbox = document.querySelector(`.video-checkbox[value="${videoId}"]`);
+
+                    if (checkbox && checkbox.checked) {
+                        const currentItem = document.querySelector(
+                            `#playlistOrder li[data-video-id="${videoId}"]`);
+                        if (currentItem && currentItem.nextElementSibling) {
+                            currentItem.parentNode.insertBefore(currentItem.nextElementSibling,
+                                currentItem);
+                            updateHiddenInputOrder();
+                        }
+                    }
+                });
+            });
+
+            // Fungsi untuk update hidden input setelah drag & drop
+            function updateHiddenInputOrder() {
+                const order = Array.from(document.querySelectorAll('#playlistOrder li'))
+                    .map(li => li.dataset.videoId);
+
+                document.getElementById('videoOrder').value = JSON.stringify(order);
+
+                // Update nomor urut
+                document.querySelectorAll('#playlistOrder li').forEach((li, index) => {
+                    li.querySelector('.badge').textContent = index + 1;
+                });
+            }
+
+            // Buat playlist order sortable
+            new Sortable(document.getElementById('playlistOrder'), {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                onEnd: function() {
+                    updateHiddenInputOrder();
                 }
             });
-        });
 
-        // Video card selection
-        document.querySelectorAll('.video-card').forEach(card => {
-            card.addEventListener('click', function(e) {
-                if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
-                    const checkbox = this.querySelector('input[type="checkbox"]');
-                    checkbox.checked = !checkbox.checked;
-                    console.log('Video card toggled:', checkbox.value);
+            // Toggle password visibility
+            document.querySelectorAll('.toggle-password').forEach(button => {
+                button.addEventListener('click', function() {
+                    const passwordInput = document.getElementById('youtube_key');
+                    const icon = this.querySelector('i');
+
+                    if (passwordInput.type === 'password') {
+                        passwordInput.type = 'text';
+                        icon.classList.remove('fa-eye');
+                        icon.classList.add('fa-eye-slash');
+                    } else {
+                        passwordInput.type = 'password';
+                        icon.classList.remove('fa-eye-slash');
+                        icon.classList.add('fa-eye');
+                    }
+                });
+            });
+
+            // Video card selection
+            document.querySelectorAll('.video-card').forEach(card => {
+                card.addEventListener('click', function(e) {
+                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL' &&
+                        !e.target.classList.contains('btn') && !e.target.closest('.btn')) {
+                        const checkbox = this.querySelector('.video-checkbox');
+                        checkbox.checked = !checkbox.checked;
+                        checkbox.dispatchEvent(new Event('change'));
+                    }
+                });
+            });
+
+            // Form submission
+            document.getElementById('streamForm').addEventListener('submit', function(e) {
+                const selectedVideos = Array.from(document.querySelectorAll('.video-checkbox:checked'))
+                    .length;
+                if (selectedVideos === 0) {
+                    e.preventDefault();
+                    alert('Pilih setidaknya satu video untuk streaming!');
                 }
             });
         });
