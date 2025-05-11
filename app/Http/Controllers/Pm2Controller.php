@@ -8,15 +8,15 @@ use Illuminate\Http\Request;
 
 class Pm2Controller extends Controller
 {
-    public function startProcess()
+    public function startPm2Process()
     {
-        $scriptPath = '/var/www/html/web/streaming/scripts/stream_1.js'; // path file node
-        $processName = 'my-node-app';                // nama proses di PM2
+        $pm2Path = '/root/.nvm/versions/node/v16.20.0/bin/pm2'; // full path ke pm2
+        $scriptPath = '/var/www/html/web/streaming/scripts/stream_1.js';
+        $processName = 'my-node-app';
 
-        $process = new Process(["pm2", "start", $scriptPath, "--name", $processName]);
+        $process = new Process([$pm2Path, 'start', $scriptPath, '--name', $processName]);
         $process->run();
 
-        // Cek apakah berhasil
         if (!$process->isSuccessful()) {
             throw new ProcessFailedException($process);
         }
