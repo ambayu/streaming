@@ -6,6 +6,7 @@ use App\Models\StreamSetting;
 use App\Models\Video;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Session;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
@@ -48,7 +49,10 @@ class StreamController extends Controller
             $streamLog = "Log file tidak ditemukan. Periksa izin atau proses streaming.";
         }
 
-        return view('stream.index', compact('setting', 'videos', 'isStreaming', 'pm2Status', 'streamLog'));
+        // Ambil daftar video yang sedang di-stream dari sesi
+        $streamingVideos = Session::get('streaming_videos_' . auth()->id(), []);
+
+        return view('stream.index', compact('setting', 'videos', 'isStreaming', 'pm2Status', 'streamLog', 'streamingVideos'));
     }
 
     public function storeKey(Request $request)
@@ -95,14 +99,28 @@ class StreamController extends Controller
         }
 
         try {
-            // Get selected videos
-            $videos = Video::whereIn('id', $request->videos)
+            // Get selected videos in the order they were submitted
+            $videoIds = $request->videos;
+            $videos = Video::whereIn('id', $videoIds)
                 ->where('user_id', auth()->id())
-                ->get();
+                ->get()
+                ->sortBy(function ($video) use ($videoIds) {
+                    return array_search($video->id, $videoIds);
+                });
 
             if ($videos->isEmpty()) {
                 return redirect()->route('stream.index')->with('error', 'Tidak ada video yang valid dipilih!');
             }
+
+            // Simpan daftar video ke sesi untuk ditampilkan di UI
+            $streamingVideos = $videos->map(function ($video) {
+                return [
+                    'id' => $video->id,
+                    'title' => $video->title,
+                    'path' => $video->path,
+                ];
+            })->toArray();
+            Session::put('streaming_videos_' . auth()->id(), $streamingVideos);
 
             // Prepare paths
             $scriptPath = base_path('scripts/stream_' . auth()->id() . '.sh');
@@ -206,7 +224,8 @@ EOD;
                 'error' => $process->getErrorOutput(),
                 'status_check' => $checkProcess->getOutput(),
                 'script_path' => $scriptPath,
-                'log_file' => $logFile
+                'log_file' => $logFile,
+                'videos' => $streamingVideos
             ];
             file_put_contents(storage_path('logs/stream_debug.log'), json_encode($debugLog, JSON_PRETTY_PRINT) . "\n", FILE_APPEND);
 
@@ -253,6 +272,9 @@ EOD;
                     throw new ProcessFailedException($deleteProcess);
                 }
             }
+
+            // Hapus daftar video dari sesi
+            Session::forget('streaming_videos_' . auth()->id());
 
             return redirect()->route('stream.index')->with('success', 'Streaming berhasil dihentikan!');
         } catch (\Exception $e) {
