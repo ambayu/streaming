@@ -23,7 +23,6 @@ class StreamController extends Controller
         $setting = auth()->user()->streamSettings;
         $videos = auth()->user()->videos()->orderBy('order')->get();
 
-        // Cek status PM2 sebagai www-data
         $pm2Name = 'stream_' . auth()->id();
         $pm2Path = '/usr/bin/pm2';
         $env = [
@@ -36,12 +35,10 @@ class StreamController extends Controller
 
         $isStreaming = $process->isSuccessful() && !empty(trim($process->getOutput()));
 
-        // Ambil status proses PM2
         $pm2StatusProcess = new Process([$pm2Path, 'list'], null, $env, null, 60);
         $pm2StatusProcess->run();
         $pm2Status = $pm2StatusProcess->isSuccessful() ? trim($pm2StatusProcess->getOutput()) : 'Tidak ada proses PM2 aktif';
 
-        // Baca log streaming terbaru
         $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
         $streamLog = '';
         if (file_exists($logFile)) {
@@ -50,7 +47,6 @@ class StreamController extends Controller
             $streamLog = "Log file tidak ditemukan. Periksa izin atau proses streaming.";
         }
 
-        // Ambil daftar video yang sedang di-stream dari sesi
         $streamingVideos = Session::get('streaming_videos_' . auth()->id(), []);
 
         return view('stream.index', compact('setting', 'videos', 'isStreaming', 'pm2Status', 'streamLog', 'streamingVideos'));
@@ -86,7 +82,6 @@ class StreamController extends Controller
             return redirect()->route('stream.index')->with('error', 'YouTube streaming key belum diatur!');
         }
 
-        // Periksa dependensi sistem
         $ffmpegCheck = shell_exec('which ffmpeg 2>&1');
         $pm2Check = shell_exec('which pm2 2>&1');
 
@@ -100,7 +95,6 @@ class StreamController extends Controller
         }
 
         try {
-            // Get selected videos in the order they were submitted
             $videoIds = $request->videos;
             $videos = Video::whereIn('id', $videoIds)
                 ->where('user_id', auth()->id())
@@ -113,7 +107,6 @@ class StreamController extends Controller
                 return redirect()->route('stream.index')->with('error', 'Tidak ada video yang valid dipilih!');
             }
 
-            // Simpan daftar video ke sesi untuk ditampilkan di UI
             $streamingVideos = $videos->map(function ($video) {
                 return [
                     'id' => $video->id,
@@ -123,19 +116,16 @@ class StreamController extends Controller
             })->toArray();
             Session::put('streaming_videos_' . auth()->id(), $streamingVideos);
 
-            // Prepare paths
             $scriptPath = base_path('scripts/stream_' . auth()->id() . '.sh');
             $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
             $youtubeKey = $setting->youtube_key;
 
-            // Buat direktori scripts jika belum ada
             if (!file_exists(dirname($scriptPath))) {
                 if (!mkdir(dirname($scriptPath), 0755, true)) {
                     throw new \Exception("Gagal membuat direktori scripts!");
                 }
             }
 
-            // Verifikasi dan persiapkan path video
             $videoPaths = [];
             foreach ($videos as $video) {
                 $path = Storage::disk('public')->path($video->path);
@@ -145,10 +135,8 @@ class StreamController extends Controller
                 $videoPaths[] = $path;
             }
 
-            // Buat string daftar video untuk script
             $videoList = implode(' ', array_map('escapeshellarg', $videoPaths));
 
-            // Buat script shell dengan redireksi output dan -flvflags
             $scriptContent = <<<EOD
 #!/bin/bash
 
@@ -156,7 +144,6 @@ LOGFILE="$logFile"
 YOUTUBE_KEY="$youtubeKey"
 VIDEOS=($videoList)
 
-# Pastikan direktori log dapat ditulis
 mkdir -p "\$(dirname "\$LOGFILE")"
 chown www-data:www-data "\$(dirname "\$LOGFILE")"
 chmod 755 "\$(dirname "\$LOGFILE")"
@@ -178,21 +165,17 @@ while true; do
 done
 EOD;
 
-            // Tulis script file dan atur izin
             if (file_put_contents($scriptPath, $scriptContent) === false) {
                 throw new \Exception("Gagal menulis file script!");
             }
             if (!chmod($scriptPath, 0755)) {
                 throw new \Exception("Gagal mengatur izin file script!");
             }
-            // Pastikan kepemilikan file benar
             chown($scriptPath, 'www-data');
             chgrp($scriptPath, 'www-data');
 
-            // Hentikan proses sebelumnya jika ada
             $this->stop();
 
-            // Mulai proses dengan PM2 sebagai www-data
             $pm2Name = 'stream_' . auth()->id();
             $pm2Path = '/usr/bin/pm2';
             $env = [
@@ -213,11 +196,9 @@ EOD;
                 throw new ProcessFailedException($process);
             }
 
-            // Verifikasi proses berjalan
             $checkProcess = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 60);
             $checkProcess->run();
 
-            // Log untuk debugging
             $debugLog = [
                 'time' => date('Y-m-d H:i:s'),
                 'command' => implode(' ', [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--output', $logFile, '--error', $logFile, '--no-autorestart']),
@@ -238,7 +219,6 @@ EOD;
                 ->with('success', 'Streaming berhasil dimulai!')
                 ->with('debug', 'Proses ID: ' . trim($checkProcess->getOutput()));
         } catch (\Exception $e) {
-            // Log error detail
             file_put_contents(
                 storage_path('logs/stream_error.log'),
                 date('Y-m-d H:i:s') . " - Error: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n",
@@ -260,12 +240,10 @@ EOD;
                 'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'
             ];
 
-            // Cek apakah proses ada
             $checkProcess = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 60);
             $checkProcess->run();
 
             if ($checkProcess->isSuccessful() && !empty(trim($checkProcess->getOutput()))) {
-                // Hentikan dan hapus proses
                 $deleteProcess = new Process([$pm2Path, 'delete', $pm2Name], null, $env, null, 60);
                 $deleteProcess->run();
 
@@ -274,7 +252,6 @@ EOD;
                 }
             }
 
-            // Hapus daftar video dari sesi
             Session::forget('streaming_videos_' . auth()->id());
 
             return redirect()->route('stream.index')->with('success', 'Streaming berhasil dihentikan!');

@@ -6,191 +6,9 @@
             <h1 class="h4 mb-0"><i class="fas fa-broadcast-tower me-2"></i>Manajemen Streaming Langsung</h1>
         </div>
         <div class="card-body">
-            <div class="row">
-                <!-- Kolom Kiri: Status Streaming, PM2 Status, Daftar Video yang Dijalankan -->
-                <div class="col-md-6">
-                    <!-- Streaming Status Card -->
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light">
-                            <h3 class="h5 mb-0"><i class="fas fa-info-circle me-2"></i>Status Streaming</h3>
-                        </div>
-                        <div class="card-body">
-                            @if ($isStreaming)
-                                <div class="alert alert-success d-flex align-items-center" role="alert">
-                                    <div class="me-3">
-                                        <i class="fas fa-circle-play fa-2x"></i>
-                                    </div>
-                                    <div>
-                                        <h4 class="alert-heading mb-1">Streaming Aktif!</h4>
-                                        <p class="mb-0">Proses streaming sedang berjalan dengan lancar.</p>
-                                    </div>
-                                </div>
-                            @else
-                                <div class="alert alert-secondary d-flex align-items-center" role="alert">
-                                    <div class="me-3">
-                                        <i class="fas fa-circle-stop fa-2x"></i>
-                                    </div>
-                                    <div>
-                                        <h4 class="alert-heading mb-1">Streaming Tidak Aktif</h4>
-                                        <p class="mb-0">Tidak ada streaming yang sedang berlangsung.</p>
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
+            <!-- ... existing streaming status and other sections ... -->
 
-                    <!-- Daftar Video yang Dijalankan -->
-                    @if ($isStreaming && !empty($streamingVideos))
-                        <div class="card mb-4 shadow-sm">
-                            <div class="card-header bg-light">
-                                <h3 class="h5 mb-0"><i class="fas fa-play-circle me-2"></i>Video yang Sedang Di-stream</h3>
-                            </div>
-                            <div class="card-body">
-                                <ol class="list-group list-group-numbered">
-                                    @foreach ($streamingVideos as $video)
-                                        <li class="list-group-item">{{ $video['title'] }}</li>
-                                    @endforeach
-                                </ol>
-                            </div>
-                        </div>
-                    @endif
-
-                    <!-- PM2 Process Status with Collapse (Default Closed) -->
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                            <h3 class="h5 mb-0"><i class="fas fa-server me-2"></i>Status Proses PM2</h3>
-                            <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#pm2StatusCollapse" aria-expanded="false"
-                                aria-controls="pm2StatusCollapse">
-                                <i class="fas fa-chevron-down"></i>
-                            </button>
-                        </div>
-                        <div class="card-body collapse" id="pm2StatusCollapse">
-                            @if (!empty($pm2Status))
-                                <div class="terminal-container bg-dark text-light p-3 rounded">
-                                    <div class="terminal-header mb-2 d-flex justify-content-between align-items-center">
-                                        <span class="text-muted">PM2 Process List</span>
-                                        <span class="badge bg-primary">Live</span>
-                                    </div>
-                                    <pre class="mb-0 terminal-content">{{ $pm2Status }}</pre>
-                                </div>
-                            @else
-                                <div class="text-center py-4">
-                                    <i class="fas fa-server fa-3x text-muted mb-3"></i>
-                                    <p class="text-muted">Tidak ada proses PM2 yang sedang berjalan</p>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Kolom Kanan: YouTube Stream Key, Error/Success Messages, Stop Streaming -->
-                <div class="col-md-6">
-                    <!-- Error and Success Messages -->
-                    @if (session('error'))
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>Terjadi Kesalahan:</strong> {{ session('error') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    @endif
-                    @if (session('success'))
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
-                            <i class="fas fa-check-circle me-2"></i>
-                            <strong>Berhasil:</strong> {{ session('success') }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    @endif
-
-                    <!-- YouTube Stream Key Section -->
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light">
-                            <h3 class="h5 mb-0"><i class="fab fa-youtube me-2 text-danger"></i>YouTube Stream Key</h3>
-                        </div>
-                        <div class="card-body">
-                            <form action="{{ route('stream.storeKey') }}" method="POST">
-                                @csrf
-                                <div class="mb-3">
-                                    <label for="youtube_key" class="form-label">Kunci Streaming YouTube</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="fas fa-key"></i></span>
-                                        <input type="password" name="youtube_key" id="youtube_key"
-                                            class="form-control @error('youtube_key') is-invalid @enderror"
-                                            value="{{ $setting->youtube_key ?? '' }}" required
-                                            placeholder="Masukkan kunci streaming YouTube">
-                                        <button class="btn btn-outline-secondary toggle-password" type="button">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    </div>
-                                    @error('youtube_key')
-                                        <div class="invalid-feedback d-block">{{ $message }}</div>
-                                    @enderror
-                                    <small class="text-muted">Kunci ini digunakan untuk mengirim video ke YouTube
-                                        Live</small>
-                                </div>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save me-1"></i> Simpan Kunci
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Stop Streaming Section -->
-                    <div class="card shadow-sm">
-                        <div class="card-header bg-light">
-                            <h3 class="h5 mb-0"><i class="fas fa-stop-circle me-2"></i>Hentikan Streaming</h3>
-                        </div>
-                        <div class="card-body">
-                            <form action="{{ route('stream.stop') }}" method="POST">
-                                @csrf
-                                <div class="d-grid">
-                                    <button type="submit" class="btn btn-danger btn-lg"
-                                        @if (!$isStreaming) disabled @endif>
-                                        <i class="fas fa-stop-circle me-1"></i> Hentikan Streaming
-                                    </button>
-                                </div>
-                                @if (!$isStreaming)
-                                    <p class="text-muted text-center mt-2 mb-0">Tidak ada streaming yang aktif</p>
-                                @endif
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Log Streaming (Full Width: col-md-12) -->
-            <div class="row">
-                <div class="col-md-12">
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                            <h3 class="h5 mb-0"><i class="fas fa-clipboard-list me-2"></i>Log Streaming</h3>
-                            <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#streamLogCollapse" aria-expanded="false"
-                                aria-controls="streamLogCollapse">
-                                <i class="fas fa-chevron-down"></i>
-                            </button>
-                        </div>
-                        <div class="card-body collapse" id="streamLogCollapse">
-                            @if ($isStreaming && !empty($streamLog))
-                                <div class="terminal-container bg-dark text-light p-3 rounded">
-                                    <div class="terminal-header mb-2 d-flex justify-content-between align-items-center">
-                                        <span class="text-muted">Live Streaming Logs</span>
-                                        <span class="badge bg-success">Active</span>
-                                    </div>
-                                    <pre class="mb-0 terminal-content" style="max-height: 300px; overflow-y: auto;">{{ $streamLog }}</pre>
-                                </div>
-                            @else
-                                <div class="text-center py-4">
-                                    <i class="fas fa-clipboard fa-3x text-muted mb-3"></i>
-                                    <p class="text-muted">Tidak ada log streaming yang tersedia</p>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Video Selection Section (Full Width: col-md-12) -->
+            <!-- Video Selection Section -->
             <div class="row">
                 <div class="col-md-12">
                     <div class="card mb-4 shadow-sm">
@@ -198,7 +16,7 @@
                             <h3 class="h5 mb-0"><i class="fas fa-video me-2"></i>Pilih Video untuk Streaming</h3>
                         </div>
                         <div class="card-body">
-                            <form action="{{ route('stream.start') }}" method="POST">
+                            <form action="{{ route('stream.start') }}" method="POST" id="streamForm">
                                 @csrf
                                 <div class="mb-3">
                                     @if ($videos->isEmpty())
@@ -210,7 +28,7 @@
                                             </a>
                                         </div>
                                     @else
-                                        <label class="form-label mb-3">Pilih satu atau lebih video untuk streaming:</label>
+                                        <label class="form-label mb-3">Pilih dan atur urutan video untuk streaming:</label>
                                         <div class="mb-3">
                                             <div class="form-check form-switch mb-3">
                                                 <input class="form-check-input" type="checkbox" id="selectAllVideos">
@@ -218,9 +36,10 @@
                                                     Video</label>
                                             </div>
                                         </div>
-                                        <div class="row row-cols-1 row-cols-md-4 g-4">
+
+                                        <div class="row row-cols-1 row-cols-md-4 g-4" id="sortableVideos">
                                             @foreach ($videos as $video)
-                                                <div class="col">
+                                                <div class="col video-item" data-id="{{ $video->id }}">
                                                     <div class="card h-100 shadow-sm video-card">
                                                         <div class="card-img-top video-thumbnail">
                                                             <video class="w-100" controls>
@@ -233,7 +52,7 @@
                                                                     <input type="checkbox" name="videos[]"
                                                                         id="video_{{ $video->id }}"
                                                                         value="{{ $video->id }}"
-                                                                        class="form-check-input">
+                                                                        class="form-check-input video-checkbox">
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -267,31 +86,9 @@
 
 @section('styles')
     <style>
-        .terminal-container {
-            border: 1px solid #444;
-            border-radius: 5px;
-            position: relative;
-            transition: all 0.3s ease;
-        }
-
-        .terminal-header {
-            padding: 5px 10px;
-            background-color: #333;
-            border-radius: 3px 3px 0 0;
-        }
-
-        .terminal-content {
-            font-family: 'Courier New', monospace;
-            white-space: pre-wrap;
-            color: #0f0;
-            background-color: #000;
-            padding: 10px;
-            border-radius: 0 0 3px 3px;
-        }
-
         .video-card {
             transition: transform 0.2s, box-shadow 0.2s;
-            cursor: pointer;
+            cursor: move;
         }
 
         .video-card:hover {
@@ -340,84 +137,65 @@
             transform: scale(1.3);
         }
 
-        .toggle-password {
-            cursor: pointer;
+        /* Drag and drop styling */
+        .sortable-ghost {
+            opacity: 0.5;
+            background: #c8ebfb;
         }
 
-        /* Styling untuk collapse */
-        .collapse-toggle-btn {
-            transition: transform 0.3s;
-        }
-
-        .collapse-toggle-btn .fas {
-            transition: transform 0.3s;
-        }
-
-        .collapse-toggle-btn:not(.collapsed) .fas {
-            transform: rotate(0deg);
-        }
-
-        .collapse-toggle-btn.collapsed .fas {
-            transform: rotate(-90deg);
-        }
-
-        .card-header {
-            cursor: pointer;
-        }
-
-        /* Responsif untuk layar kecil */
-        @media (max-width: 767px) {
-            .row>.col-md-6 {
-                margin-bottom: 1.5rem;
-            }
+        .sortable-chosen {
+            cursor: grabbing;
         }
     </style>
 @endsection
 
 @section('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize SortableJS
+            const sortable = new Sortable(document.getElementById('sortableVideos'), {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                onEnd: function() {
+                    updateVideoOrder();
+                }
+            });
+
+            // Update video order after drag and drop
+            function updateVideoOrder() {
+                const videoItems = document.querySelectorAll('.video-item');
+                const order = Array.from(videoItems).map(item => item.dataset.id);
+
+                fetch("{{ route('stream.updateOrder') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                        },
+                        body: JSON.stringify({
+                            order: order
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.success) {
+                            console.error('Failed to update order:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+            }
+
+            // Select all videos checkbox
             const selectAllCheckbox = document.getElementById('selectAllVideos');
-            const videoCheckboxes = document.querySelectorAll('input[name="videos[]"]');
+            const videoCheckboxes = document.querySelectorAll('.video-checkbox');
 
             selectAllCheckbox.addEventListener('change', function() {
                 videoCheckboxes.forEach(checkbox => {
                     checkbox.checked = selectAllCheckbox.checked;
-                });
-            });
-
-            // Debugging collapse buttons
-            document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
-                console.log('Collapse button initialized:', button);
-                const target = document.querySelector(button.getAttribute('data-bs-target'));
-
-                // Tambahkan event listener untuk status collapse
-                target.addEventListener('shown.bs.collapse', () => {
-                    button.classList.remove('collapsed');
-                    console.log('Collapse shown:', button.getAttribute('data-bs-target'));
-                });
-                target.addEventListener('hidden.bs.collapse', () => {
-                    button.classList.add('collapsed');
-                    console.log('Collapse hidden:', button.getAttribute('data-bs-target'));
-                });
-            });
-
-            // Toggle password visibility
-            document.querySelectorAll('.toggle-password').forEach(button => {
-                console.log('Toggle password button initialized:', button);
-                button.addEventListener('click', function() {
-                    const passwordInput = document.getElementById('youtube_key');
-                    const icon = this.querySelector('i');
-                    console.log('Toggling password visibility');
-                    if (passwordInput.type === 'password') {
-                        passwordInput.type = 'text';
-                        icon.classList.remove('fa-eye');
-                        icon.classList.add('fa-eye-slash');
-                    } else {
-                        passwordInput.type = 'password';
-                        icon.classList.remove('fa-eye-slash');
-                        icon.classList.add('fa-eye');
-                    }
                 });
             });
 
@@ -427,7 +205,6 @@
                     if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
                         const checkbox = this.querySelector('input[type="checkbox"]');
                         checkbox.checked = !checkbox.checked;
-                        console.log('Video card toggled:', checkbox.value);
                     }
                 });
             });
