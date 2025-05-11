@@ -17,3 +17,4 @@ Route::middleware('auth')->group(function () {
 
 Route::get('/', fn() => redirect()->route('videos.index'));
 Route::get('/home', fn() => redirect()->route('videos.index'));
+Route::get('/pm2/start', [App\Http\Controllers\Pm2Controller::class, 'startProcess']);
