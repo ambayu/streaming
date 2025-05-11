@@ -173,8 +173,16 @@
                                     @else
                                         <label class="form-label mb-3">Pilih satu atau lebih video untuk streaming:</label>
                                         <div class="row row-cols-1 row-cols-md-2 g-4">
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch mb-3">
+                                                    <input class="form-check-input" type="checkbox" id="selectAllVideos">
+                                                    <label class="form-check-label" for="selectAllVideos">Pilih Semua
+                                                        Video</label>
+                                                </div>
+                                            </div>
+
                                             @foreach ($videos as $video)
-                                                <div class="col-md-4">
+                                                <div class="col">
                                                     <div class="card h-100 shadow-sm video-card">
                                                         <div class="card-img-top video-thumbnail">
                                                             <video class="w-100" controls>
@@ -350,6 +358,18 @@
 @endsection
 
 @section('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const selectAllCheckbox = document.getElementById('selectAllVideos');
+            const videoCheckboxes = document.querySelectorAll('input[name="videos[]"]');
+
+            selectAllCheckbox.addEventListener('change', function() {
+                videoCheckboxes.forEach(checkbox => {
+                    checkbox.checked = selectAllCheckbox.checked;
+                });
+            });
+        });
+    </script>
     <script>
         // Debugging collapse buttons
         document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
