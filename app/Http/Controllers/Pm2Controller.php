@@ -1,16 +1,15 @@
 <?php
-
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
-use Illuminate\Http\Request;
 
 class Pm2Controller extends Controller
 {
-    public function startPm2Process()
+    public function startProcess()
     {
-        $pm2Path = '/root/.nvm/versions/node/v16.20.0/bin/pm2'; // full path ke pm2
+        $pm2Path = '/root/.nvm/versions/node/v16.20.0/bin/pm2'; // atau yang global
         $scriptPath = '/var/www/html/web/streaming/scripts/stream_1.js';
         $processName = 'my-node-app';
 
