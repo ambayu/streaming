@@ -174,7 +174,7 @@
                                         <label class="form-label mb-3">Pilih satu atau lebih video untuk streaming:</label>
                                         <div class="row row-cols-1 row-cols-md-2 g-4">
                                             @foreach ($videos as $video)
-                                                <div class="col">
+                                                <div class="col-md-4">
                                                     <div class="card h-100 shadow-sm video-card">
                                                         <div class="card-img-top video-thumbnail">
                                                             <video class="w-100" controls>
