@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\StreamSetting;
 use App\Models\Video;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Session;
-use Symfony\Component\Process\Process;
-use Symfony\Component\Process\Exception\ProcessFailedException;
+use App\Models\StreamSetting;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Process;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class StreamController extends Controller
 {
@@ -260,6 +261,7 @@ EOD;
         }
     }
 
+
     public function updateOrder(Request $request)
     {
         Log::info('Update order request:', $request->all());
@@ -270,15 +272,22 @@ EOD;
         ]);
 
         try {
+            DB::beginTransaction();
             foreach ($request->order as $index => $videoId) {
                 Log::info('Updating video ID:', ['id' => $videoId, 'order' => $index + 1]);
-                Video::where('id', $videoId)
+                $updated = Video::where('id', $videoId)
                     ->where('user_id', auth()->id())
                     ->update(['order' => $index + 1]);
+
+                if (!$updated) {
+                    Log::warning('No rows updated for video ID:', ['id' => $videoId]);
+                }
             }
+            DB::commit();
             Log::info('Video order updated successfully');
             return response()->json(['success' => true, 'message' => 'Urutan video berhasil disimpan']);
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Failed to update order:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json(['success' => false, 'message' => 'Gagal menyimpan urutan: ' . $e->getMessage()], 500);
         }

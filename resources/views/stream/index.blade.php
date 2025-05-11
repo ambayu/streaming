@@ -153,20 +153,20 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize SortableJS
             const sortable = new Sortable(document.getElementById('sortableVideos'), {
                 animation: 150,
                 ghostClass: 'sortable-ghost',
                 chosenClass: 'sortable-chosen',
                 onEnd: function() {
+                    console.log('Drag ended, updating order...');
                     updateVideoOrder();
                 }
             });
 
-            // Update video order after drag and drop
             function updateVideoOrder() {
                 const videoItems = document.querySelectorAll('.video-item');
                 const order = Array.from(videoItems).map(item => item.dataset.id);
+                console.log('New order:', order);
 
                 fetch("{{ route('stream.updateOrder') }}", {
                         method: 'POST',
@@ -175,21 +175,24 @@
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                         },
                         body: JSON.stringify({
-                            order: order
+                            order
                         })
                     })
                     .then(response => response.json())
                     .then(data => {
-                        if (!data.success) {
+                        if (data.success) {
+                            alert('Urutan video berhasil diperbarui!');
+                        } else {
                             console.error('Failed to update order:', data.message);
+                            alert('Gagal memperbarui urutan: ' + data.message);
                         }
                     })
                     .catch(error => {
-                        console.error('Error:', error);
+                        console.error('AJAX error:', error);
+                        alert('Terjadi kesalahan saat memperbarui urutan.');
                     });
             }
 
-            // Select all videos checkbox
             const selectAllCheckbox = document.getElementById('selectAllVideos');
             const videoCheckboxes = document.querySelectorAll('.video-checkbox');
 
@@ -199,7 +202,6 @@
                 });
             });
 
-            // Video card selection
             document.querySelectorAll('.video-card').forEach(card => {
                 card.addEventListener('click', function(e) {
                     if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
