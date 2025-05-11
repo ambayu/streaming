@@ -337,10 +337,20 @@
 
 @section('scripts')
     <script>
+        // Debugging collapse buttons
+        document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
+            console.log('Collapse button initialized:', button);
+            button.addEventListener('click', function() {
+                console.log('Collapse toggled for:', this.getAttribute('data-bs-target'));
+                this.classList.toggle('collapsed');
+            });
+        });
+
         // Toggle password visibility
         document.querySelector('.toggle-password').addEventListener('click', function() {
             const passwordInput = document.getElementById('youtube_key');
             const icon = this.querySelector('i');
+            console.log('Toggling password visibility');
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
                 icon.classList.remove('fa-eye');
@@ -358,14 +368,8 @@
                 if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
                     const checkbox = this.querySelector('input[type="checkbox"]');
                     checkbox.checked = !checkbox.checked;
+                    console.log('Video card toggled:', checkbox.value);
                 }
-            });
-        });
-
-        // Toggle collapse icon
-        document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
-            button.addEventListener('click', function() {
-                this.classList.toggle('collapsed');
             });
         });
     </script>
