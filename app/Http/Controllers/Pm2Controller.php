@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -9,7 +10,7 @@ class Pm2Controller extends Controller
 {
     public function startProcess()
     {
-        $pm2Path = '/root/.nvm/versions/node/v16.20.0/bin/pm2'; // atau yang global
+        $pm2Path = '/usr/bin/pm2';
         $scriptPath = '/var/www/html/web/streaming/scripts/stream_1.js';
         $processName = 'my-node-app';
 
