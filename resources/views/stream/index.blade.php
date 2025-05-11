@@ -1,4 +1,3 @@
-```blade
 @extends('layouts.app')
 
 @section('content')
@@ -347,19 +346,22 @@
         });
 
         // Toggle password visibility
-        document.querySelector('.toggle-password').addEventListener('click', function() {
-            const passwordInput = document.getElementById('youtube_key');
-            const icon = this.querySelector('i');
-            console.log('Toggling password visibility');
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-            } else {
-                passwordInput.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-            }
+        document.querySelectorAll('.toggle-password').forEach(button => {
+            console.log('Toggle password button initialized:', button);
+            button.addEventListener('click', function() {
+                const passwordInput = document.getElementById('youtube_key');
+                const icon = this.querySelector('i');
+                console.log('Toggling password visibility');
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                } else {
+                    passwordInput.type = 'password';
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                }
+            });
         });
 
         // Video card selection
@@ -374,4 +376,3 @@
         });
     </script>
 @endsection
-```
