@@ -13,7 +13,7 @@ class Pm2Controller extends Controller
         // Tentukan path untuk PM2 dan script Node.js
         $pm2Path = '/usr/bin/pm2';
         $scriptPath = '/var/www/html/web/streaming/scripts/stream_1.js';
-        $processName = 'my-node-app';
+        $processName = 'ul ul ul';
 
         // Gunakan direktori yang dapat diakses oleh user web server
         $env = [
