@@ -183,7 +183,7 @@
 
 
                                             @foreach ($videos as $video)
-                                                <div class="col-2">
+                                                <div class="col-md-2 col-2">
                                                     <div class="card h-100 shadow-sm video-card">
                                                         <div class="card-img-top video-thumbnail">
                                                             <video class="w-100" controls>
