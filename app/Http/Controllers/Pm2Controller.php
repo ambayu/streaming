@@ -15,12 +15,12 @@ class Pm2Controller extends Controller
         $scriptPath = '/var/www/html/web/streaming/scripts/stream_1.js';
         $processName = 'my-node-app';
 
-        // Jika perlu menambahkan variabel environment untuk PM2
+        // Gunakan direktori yang dapat diakses oleh user web server
         $env = [
-            'PM2_HOME' => '/root/.pm2'  // Misalnya untuk menambahkan variabel lingkungan PM2_HOME
+            'PM2_HOME' => '/var/www/.pm2' // Direktori yang writable oleh www-data
         ];
 
-        // Menyiapkan perintah untuk menjalankan PM2 dengan script yang diinginkan
+        // Menyiapkan perintah untuk menjalankan PM2
         $process = new Process([$pm2Path, 'start', $scriptPath, '--name', $processName], null, $env);
         $process->run();
 
@@ -29,7 +29,7 @@ class Pm2Controller extends Controller
             throw new ProcessFailedException($process);
         }
 
-        // Mengembalikan respons JSON dengan status dan output dari proses
+        // Mengembalikan respons JSON dengan status dan output
         return response()->json([
             'status' => 'success',
             'output' => $process->getOutput(),
