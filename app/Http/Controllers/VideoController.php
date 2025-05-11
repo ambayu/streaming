@@ -28,7 +28,7 @@ class VideoController extends Controller
     {
         $request->validate([
             'title' => 'required|string|max:255',
-            'video' => 'required|mimes:mp4|max:200480', // Max 20MB
+            'video' => 'required|mimes:mp4', // Max 20MB
         ]);
 
         try {
