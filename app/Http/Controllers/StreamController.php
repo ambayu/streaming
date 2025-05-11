@@ -154,10 +154,13 @@ EOD;
             // Mulai proses dengan PM2 sebagai www-data
             $pm2Name = 'stream_' . auth()->id();
             $pm2Path = '/usr/bin/pm2';
-            $env = ['PM2_HOME' => '/var/www/.pm2'];
+            $env = [
+                'PM2_HOME' => '/var/www/.pm2',
+                'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin' // Pastikan bash ada di PATH
+            ];
 
             $process = new Process(
-                [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--no-autorestart', '--interpreter', 'bash'],
+                [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--no-autorestart'],
                 null,
                 $env,
                 null,
@@ -177,7 +180,7 @@ EOD;
             // Log untuk debugging
             $debugLog = [
                 'time' => date('Y-m-d H:i:s'),
-                'command' => implode(' ', [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--no-autorestart', '--interpreter', 'bash']),
+                'command' => implode(' ', [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--no-autorestart']),
                 'output' => $process->getOutput(),
                 'error' => $process->getErrorOutput(),
                 'status_check' => $checkProcess->getOutput(),
