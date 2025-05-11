@@ -24,14 +24,22 @@ class StreamController extends Controller
         // Cek status PM2 sebagai www-data
         $pm2Name = 'stream_' . auth()->id();
         $pm2Path = '/usr/bin/pm2';
-        $env = ['PM2_HOME' => '/var/www/.pm2'];
+        $env = [
+            'PM2_HOME' => '/var/www/.pm2',
+            'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin' // Pastikan bash dan ffmpeg ada di PATH
+        ];
 
         $process = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 60);
         $process->run();
 
         $isStreaming = $process->isSuccessful() && !empty(trim($process->getOutput()));
 
-        return view('stream.index', compact('setting', 'videos', 'isStreaming'));
+        // Ambil status proses PM2 untuk debugging
+        $pm2StatusProcess = new Process([$pm2Path, 'list'], null, $env, null, 60);
+        $pm2StatusProcess->run();
+        $pm2Status = $pm2StatusProcess->isSuccessful() ? trim($pm2StatusProcess->getOutput()) : 'Tidak ada proses PM2 aktif';
+
+        return view('stream.index', compact('setting', 'videos', 'isStreaming', 'pm2Status'));
     }
 
     public function storeKey(Request $request)
@@ -156,7 +164,7 @@ EOD;
             $pm2Path = '/usr/bin/pm2';
             $env = [
                 'PM2_HOME' => '/var/www/.pm2',
-                'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin' // Pastikan bash ada di PATH
+                'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin' // Pastikan bash dan ffmpeg ada di PATH
             ];
 
             $process = new Process(
@@ -214,7 +222,10 @@ EOD;
         try {
             $pm2Name = 'stream_' . auth()->id();
             $pm2Path = '/usr/bin/pm2';
-            $env = ['PM2_HOME' => '/var/www/.pm2'];
+            $env = [
+                'PM2_HOME' => '/var/www/.pm2',
+                'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'
+            ];
 
             // Cek apakah proses ada
             $checkProcess = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 60);

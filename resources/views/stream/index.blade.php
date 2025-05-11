@@ -13,7 +13,7 @@
                         <circle cx="12" cy="12" r="10" fill="green"/>
                     </svg>
                     <div>
-                        <strong>Streaming Aktif!</strong> Tmux session sedang berjalan.
+                        <strong>Streaming Aktif!</strong> Proses PM2 sedang berjalan.
                     </div>
                 </div>
             @else
@@ -24,6 +24,21 @@
                     <div>
                         Tidak ada streaming aktif.
                     </div>
+                </div>
+            @endif
+
+            <!-- Tampilkan Daftar Proses PM2 -->
+            @if (!empty($pm2Status))
+                <h3>Proses PM2 Aktif</h3>
+                <pre class="bg-light p-3 rounded">{{ $pm2Status }}</pre>
+            @else
+                <p class="text-muted">Tidak ada proses PM2 aktif.</p>
+            @endif
+
+            <!-- Tampilkan Pesan Error -->
+            @if (session('error'))
+                <div class="alert alert-danger">
+                    <strong>Error:</strong> {{ session('error') }}
                 </div>
             @endif
 
