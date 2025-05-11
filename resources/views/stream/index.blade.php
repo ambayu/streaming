@@ -202,10 +202,7 @@
                                                         </div>
                                                         <div class="card-body">
                                                             <h5 class="card-title text-truncate">{{ $video->title }}</h5>
-                                                            <p class="card-text text-muted small">
-                                                                <i class="far fa-file me-1"></i>
-                                                                {{ basename($video->path) }}
-                                                            </p>
+
                                                         </div>
                                                     </div>
                                                 </div>
