@@ -153,7 +153,7 @@ while true; do
   for f in "\${VIDEOS[@]}"; do
     echo "\$(date): Streaming \$f" >> "\$LOGFILE"
 
-    ffmpeg -re -i "\$f" -c:v copy -c:a copy -flvflags no_duration_filesize -f flv "rtmp://a.rtmp.youtube.com/live2/\$YOUTUBE_KEY" >> "\$LOGFILE" 2>&1
+    ffmpeg -re -i "\$f" -c:v copy -c:a copy -flvflags no_duration_filesize -f flv "rtmps://a.rtmp.youtube.com/live2/\$YOUTUBE_KEY" >> "\$LOGFILE" 2>&1
 
     if [ \$? -ne 0 ]; then
       echo "\$(date): ERROR streaming \$f" >> "\$LOGFILE"
