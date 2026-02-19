@@ -136,33 +136,54 @@ class StreamController extends Controller
                 $videoPaths[] = $path;
             }
 
-            $videoList = implode(' ', array_map('escapeshellarg', $videoPaths));
+            $userId = auth()->id();
+            $playlistFile = "/tmp/stream_playlist_{$userId}.txt";
+
+            // Buat isi playlist concat untuk ffmpeg
+            $playlistLines = '';
+            foreach ($videoPaths as $vpath) {
+                $escaped = str_replace("'", "'\\''", $vpath);
+                $playlistLines .= "file '{$escaped}'\n";
+            }
 
             $scriptContent = <<<EOD
 #!/bin/bash
 
 LOGFILE="$logFile"
 YOUTUBE_KEY="$youtubeKey"
-VIDEOS=($videoList)
+PLAYLIST="$playlistFile"
+RTMP_URL="rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY"
 
 mkdir -p "\$(dirname "\$LOGFILE")"
-chown www-data:www-data "\$(dirname "\$LOGFILE")"
-chmod 755 "\$(dirname "\$LOGFILE")"
+
+# Buat file playlist concat ffmpeg
+cat > "\$PLAYLIST" << 'PLAYLIST_EOF'
+$playlistLines
+PLAYLIST_EOF
+
+echo "\$(date): [INFO] Playlist dibuat: \$PLAYLIST" >> "\$LOGFILE"
+echo "\$(date): [INFO] Memulai streaming ke YouTube..." >> "\$LOGFILE"
 
 while true; do
-  for f in "\${VIDEOS[@]}"; do
-    echo "\$(date): Streaming \$f" >> "\$LOGFILE"
+  echo "\$(date): [START] Menjalankan FFmpeg dengan concat loop..." >> "\$LOGFILE"
 
-    ffmpeg -re -i "\$f" -c:v copy -c:a copy -flvflags no_duration_filesize -f flv "rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY" >> "\$LOGFILE" 2>&1
+  ffmpeg -y \
+    -re \
+    -f concat \
+    -safe 0 \
+    -stream_loop -1 \
+    -i "\$PLAYLIST" \
+    -c:v copy \
+    -c:a aac \
+    -ar 44100 \
+    -b:a 128k \
+    -flvflags no_duration_filesize \
+    -f flv \
+    "\$RTMP_URL" >> "\$LOGFILE" 2>&1
 
-    if [ \$? -ne 0 ]; then
-      echo "\$(date): ERROR streaming \$f" >> "\$LOGFILE"
-    else
-      echo "\$(date): Finished \$f" >> "\$LOGFILE"
-    fi
-  done
-  echo "\$(date): Menunggu 10 detik sebelum loop berikutnya..." >> "\$LOGFILE"
-  sleep 10
+  EXIT_CODE=\$?
+  echo "\$(date): [WARN] FFmpeg berhenti (exit code: \$EXIT_CODE). Restart dalam 3 detik..." >> "\$LOGFILE"
+  sleep 3
 done
 EOD;
 
@@ -185,7 +206,7 @@ EOD;
             ];
 
             $process = new Process(
-                [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--output', $logFile, '--error', $logFile, '--no-autorestart'],
+                [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--output', $logFile, '--error', $logFile],
                 null,
                 $env,
                 null,

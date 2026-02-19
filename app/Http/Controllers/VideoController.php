@@ -97,4 +97,58 @@ class VideoController extends Controller
             return redirect()->back()->with('error', 'Gagal menghapus video: ' . $e->getMessage());
         }
     }
+
+    public function stream(Video $video)
+    {
+        // Pastikan video milik user yang login
+        abort_if($video->user_id !== auth()->id(), 403);
+
+        $path = Storage::disk('public')->path($video->path);
+
+        if (!file_exists($path)) {
+            abort(404, 'File video tidak ditemukan.');
+        }
+
+        $size = filesize($path);
+        $mimeType = 'video/mp4';
+
+        $headers = [
+            'Content-Type'              => $mimeType,
+            'Content-Length'            => $size,
+            'Content-Disposition'       => 'inline; filename="' . basename($path) . '"',
+            'Accept-Ranges'             => 'bytes',
+            'Cache-Control'             => 'public, max-age=86400',
+        ];
+
+        // Dukung HTTP Range Request (agar video bisa di-seek)
+        $request = request();
+        if ($request->hasHeader('Range')) {
+            $range = $request->header('Range');
+            preg_match('/bytes=(\d+)-(\d*)/', $range, $matches);
+
+            $start = (int) $matches[1];
+            $end   = isset($matches[2]) && $matches[2] !== '' ? (int) $matches[2] : $size - 1;
+            $end   = min($end, $size - 1);
+            $length = $end - $start + 1;
+
+            $headers['Content-Range']  = "bytes {$start}-{$end}/{$size}";
+            $headers['Content-Length'] = $length;
+
+            $stream = fopen($path, 'rb');
+            fseek($stream, $start);
+
+            return response()->stream(function () use ($stream, $length) {
+                $remaining = $length;
+                while (!feof($stream) && $remaining > 0) {
+                    $chunk = min(8192, $remaining);
+                    echo fread($stream, $chunk);
+                    $remaining -= $chunk;
+                    flush();
+                }
+                fclose($stream);
+            }, 206, $headers);
+        }
+
+        return response()->file($path, $headers);
+    }
 }

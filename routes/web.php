@@ -10,6 +10,7 @@ Auth::routes();
 
 Route::middleware('auth')->group(function () {
     Route::resource('videos', VideoController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
+    Route::get('videos/{video}/stream', [VideoController::class, 'stream'])->name('videos.stream');
     Route::get('stream', [StreamController::class, 'index'])->name('stream.index');
     Route::post('stream/key', [StreamController::class, 'storeKey'])->name('stream.storeKey');
     Route::post('stream/start', [StreamController::class, 'start'])->name('stream.start');

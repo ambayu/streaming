@@ -17,8 +17,8 @@
                                 <div class="card-body text-center">
                                     <h5 class="card-title">{{ $video->title }}</h5>
                                     <p class="card-text text-muted">File: {{ basename($video->path) }}</p>
-                                    <video width="100%" height="180" controls class="rounded mb-3">
-                                        <source src="{{ Storage::url($video->path) }}" type="video/mp4">
+                                    <video width="100%" height="180" controls class="rounded mb-3" preload="metadata">
+                                        <source src="{{ route('videos.stream', $video) }}" type="video/mp4">
                                         Browser Anda tidak mendukung tag video.
                                     </video>
                                     <div class="d-flex justify-content-center gap-2">
