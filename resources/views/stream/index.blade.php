@@ -237,12 +237,13 @@
                                                         <div class="card-img-top video-thumbnail position-relative bg-dark"
                                                              style="height:130px;">
 
-                                                            {{-- Placeholder sebelum video diload --}}
+                                                            {{-- Placeholder dengan thumbnail --}}
                                                             <div class="video-placeholder-stream d-flex flex-column align-items-center justify-content-center h-100 text-white"
-                                                                 style="cursor:pointer;"
+                                                                 style="cursor:pointer; background-image:url('{{ route('videos.thumbnail', $video) }}'); background-size:cover; background-position:center;"
                                                                  data-src="{{ route('videos.stream', $video) }}">
-                                                                <i class="fas fa-play-circle fa-2x text-secondary mb-1"></i>
-                                                                <small class="text-muted" style="font-size:0.7rem;">Klik untuk putar</small>
+                                                                <div style="background:rgba(0,0,0,0.45); border-radius:50%; width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
+                                                                    <i class="fas fa-play text-white"></i>
+                                                                </div>
                                                             </div>
 
                                                             {{-- Video element, src lazy --}}

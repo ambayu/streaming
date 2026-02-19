@@ -155,4 +155,67 @@ class VideoController extends Controller
 
         return response()->file($path, $headers);
     }
+
+    public function thumbnail(Video $video)
+    {
+        $videoPath = Storage::disk('public')->path($video->path);
+
+        if (!file_exists($videoPath)) {
+            abort(404);
+        }
+
+        // Direktori cache thumbnail
+        $thumbDir  = Storage::disk('public')->path('thumbnails');
+        $thumbPath = $thumbDir . '/' . $video->id . '.jpg';
+
+        // Buat direktori jika belum ada
+        if (!is_dir($thumbDir)) {
+            mkdir($thumbDir, 0755, true);
+        }
+
+        // Generate thumbnail jika belum ada (menggunakan FFmpeg)
+        if (!file_exists($thumbPath)) {
+            $ffmpeg = trim(shell_exec('which ffmpeg 2>/dev/null') ?: '');
+
+            if (!empty($ffmpeg)) {
+                // Ambil frame di detik ke-3 (atau detik ke-1 jika video pendek)
+                $cmd = escapeshellcmd($ffmpeg)
+                    . ' -y -i ' . escapeshellarg($videoPath)
+                    . ' -ss 00:00:03'
+                    . ' -vframes 1'
+                    . ' -vf "scale=320:-1"'
+                    . ' -q:v 5'
+                    . ' ' . escapeshellarg($thumbPath)
+                    . ' 2>/dev/null';
+                exec($cmd);
+
+                // Jika detik ke-3 gagal (video terlalu pendek), coba detik ke-1
+                if (!file_exists($thumbPath)) {
+                    $cmd = escapeshellcmd($ffmpeg)
+                        . ' -y -i ' . escapeshellarg($videoPath)
+                        . ' -ss 00:00:01'
+                        . ' -vframes 1'
+                        . ' -vf "scale=320:-1"'
+                        . ' -q:v 5'
+                        . ' ' . escapeshellarg($thumbPath)
+                        . ' 2>/dev/null';
+                    exec($cmd);
+                }
+            }
+
+            // Jika FFmpeg tidak ada atau gagal, return placeholder SVG
+            if (!file_exists($thumbPath)) {
+                $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">'
+                     . '<rect width="320" height="180" fill="#1a1a2e"/>'
+                     . '<polygon points="120,60 120,120 200,90" fill="#6c757d"/>'
+                     . '</svg>';
+                return response($svg, 200, ['Content-Type' => 'image/svg+xml', 'Cache-Control' => 'public, max-age=86400']);
+            }
+        }
+
+        return response()->file($thumbPath, [
+            'Content-Type'  => 'image/jpeg',
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
 }

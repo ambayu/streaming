@@ -23,10 +23,12 @@
                                          style="height:180px; cursor:pointer;"
                                          data-src="{{ route('videos.stream', $video) }}">
 
-                                        {{-- Placeholder tampil sebelum video diload --}}
-                                        <div class="video-placeholder d-flex flex-column align-items-center justify-content-center h-100 text-white">
-                                            <i class="fas fa-play-circle fa-3x mb-2 text-secondary"></i>
-                                            <small class="text-muted">Klik untuk putar</small>
+                                        {{-- Placeholder dengan thumbnail --}}
+                                        <div class="video-placeholder d-flex flex-column align-items-center justify-content-center h-100 text-white"
+                                             style="background-image:url('{{ route('videos.thumbnail', $video) }}'); background-size:cover; background-position:center;">
+                                            <div style="background:rgba(0,0,0,0.45); border-radius:50%; width:52px; height:52px; display:flex; align-items:center; justify-content:center;">
+                                                <i class="fas fa-play fa-lg text-white"></i>
+                                            </div>
                                         </div>
 
                                         {{-- Video element, src tidak diset dulu --}}

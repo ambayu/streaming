@@ -17,8 +17,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/stream/update-order', [StreamController::class, 'updateOrder'])->name('stream.updateOrder');
 });
 
-// Route video stream tanpa auth (untuk browser video player)
+// Route video stream & thumbnail tanpa auth (untuk browser video player & img tag)
 Route::get('videos/{video}/stream', [VideoController::class, 'stream'])->name('videos.stream');
+Route::get('videos/{video}/thumbnail', [VideoController::class, 'thumbnail'])->name('videos.thumbnail');
 
 Route::get('/', fn() => redirect()->route('videos.index'));
 Route::get('/home', fn() => redirect()->route('videos.index'));
