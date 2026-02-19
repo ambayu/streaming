@@ -238,8 +238,8 @@ EOD;
             }
 
             return redirect()->route('stream.index')
-                ->with('success', 'Streaming berhasil dimulai!')
-                ->with('debug', 'Proses ID: ' . trim($checkProcess->getOutput()));
+                ->with('success', 'Streaming berhasil dimulai! PM2 process ID: ' . trim($checkProcess->getOutput()))
+                ->with('debug', 'Playlist: ' . count($videos) . ' video(s)');
         } catch (\Exception $e) {
             file_put_contents(
                 storage_path('logs/stream_error.log'),

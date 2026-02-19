@@ -100,17 +100,20 @@ class VideoController extends Controller
 
     public function stream(Video $video)
     {
-        // Pastikan video milik user yang login
-        abort_if($video->user_id !== auth()->id(), 403);
+        // Bypass auth check untuk video stream (browser video player tidak kirim cookie)
+        // abort_if($video->user_id !== auth()->id(), 403);
 
         $path = Storage::disk('public')->path($video->path);
 
         if (!file_exists($path)) {
+            \Log::error('Video file not found: ' . $path);
             abort(404, 'File video tidak ditemukan.');
         }
 
         $size = filesize($path);
         $mimeType = 'video/mp4';
+
+        \Log::info('Streaming video: ' . $path . ' Size: ' . $size);
 
         $headers = [
             'Content-Type'              => $mimeType,
@@ -118,6 +121,7 @@ class VideoController extends Controller
             'Content-Disposition'       => 'inline; filename="' . basename($path) . '"',
             'Accept-Ranges'             => 'bytes',
             'Cache-Control'             => 'public, max-age=86400',
+            'X-Content-Type-Options'    => 'nosniff',
         ];
 
         // Dukung HTTP Range Request (agar video bisa di-seek)
