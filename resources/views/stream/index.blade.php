@@ -234,13 +234,26 @@
                                             @foreach ($videos as $video)
                                                 <div class="col" data-id="{{ $video->id }}">
                                                     <div class="card h-100 shadow-sm video-card">
-                                                        <div class="card-img-top video-thumbnail">
-                                                            <video class="w-100" controls>
-                                                                <source src="{{ Storage::url($video->path) }}"
-                                                                    type="video/mp4">
+                                                        <div class="card-img-top video-thumbnail position-relative bg-dark"
+                                                             style="height:130px;">
+
+                                                            {{-- Placeholder sebelum video diload --}}
+                                                            <div class="video-placeholder-stream d-flex flex-column align-items-center justify-content-center h-100 text-white"
+                                                                 style="cursor:pointer;"
+                                                                 data-src="{{ route('videos.stream', $video) }}">
+                                                                <i class="fas fa-play-circle fa-2x text-secondary mb-1"></i>
+                                                                <small class="text-muted" style="font-size:0.7rem;">Klik untuk putar</small>
+                                                            </div>
+
+                                                            {{-- Video element, src lazy --}}
+                                                            <video class="w-100 h-100 d-none"
+                                                                   controls
+                                                                   preload="none"
+                                                                   style="object-fit:contain; position:absolute; top:0; left:0;">
                                                                 Browser Anda tidak mendukung video.
                                                             </video>
-                                                            <div class="video-overlay">
+
+                                                            <div class="video-overlay" style="position:absolute; top:5px; right:5px; z-index:10;">
                                                                 <div class="form-check form-switch">
                                                                     <input type="checkbox" name="videos[]"
                                                                         id="video_{{ $video->id }}"
@@ -558,6 +571,51 @@
                         console.log('Video card toggled:', checkbox.value, checkbox.checked);
                     }
                 });
+            });
+
+            // Lazy load video: klik placeholder → tampil video dan play
+            document.querySelectorAll('.video-placeholder-stream').forEach(function (placeholder) {
+                placeholder.addEventListener('click', function (e) {
+                    e.stopPropagation(); // jangan trigger card click
+                    const src   = this.dataset.src;
+                    const wrapper = this.parentElement;
+                    const video = wrapper.querySelector('video');
+
+                    if (src && !video.querySelector('source')) {
+                        const source = document.createElement('source');
+                        source.src  = src;
+                        source.type = 'video/mp4';
+                        video.appendChild(source);
+                        video.load();
+                    }
+
+                    this.classList.add('d-none');
+                    video.classList.remove('d-none');
+                    video.play();
+                });
+            });
+
+            // Intersection Observer: preload video saat card masuk viewport
+            const videoObserver = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        const placeholder = entry.target;
+                        const src = placeholder.dataset.src;
+                        const video = placeholder.parentElement.querySelector('video');
+                        if (src && video && !video.querySelector('source')) {
+                            // Set src tapi belum play (preload none)
+                            const source = document.createElement('source');
+                            source.src  = src;
+                            source.type = 'video/mp4';
+                            video.appendChild(source);
+                        }
+                        videoObserver.unobserve(placeholder);
+                    }
+                });
+            }, { rootMargin: '150px' });
+
+            document.querySelectorAll('.video-placeholder-stream').forEach(function (p) {
+                videoObserver.observe(p);
             });
 
             // Debug form submission
