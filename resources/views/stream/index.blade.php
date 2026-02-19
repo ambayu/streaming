@@ -55,6 +55,18 @@
                         </div>
                     @endif
 
+                    <!-- Debug Info -->
+                    @if (session('debug'))
+                        <div class="card mb-4 shadow-sm">
+                            <div class="card-header bg-info text-white">
+                                <h3 class="h5 mb-0"><i class="fas fa-bug me-2"></i>Debug Info</h3>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-0">{{ session('debug') }}</p>
+                            </div>
+                        </div>
+                    @endif
+
                     <!-- PM2 Process Status with Collapse (Default Closed) -->
                     <div class="card mb-4 shadow-sm">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center">
