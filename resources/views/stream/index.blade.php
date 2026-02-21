@@ -121,6 +121,43 @@ ini stream index saya
                             @endif
                         </div>
                     </div>
+
+                    <!-- VPS Info (moved from right column) -->
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h3 class="h5 mb-0"><i class="fas fa-server me-2"></i>Info VPS</h3>
+                            <a class="btn btn-link p-0" data-bs-toggle="collapse" href="#vpsInfoCollapse"
+                               role="button" aria-expanded="false" aria-controls="vpsInfoCollapse">
+                                <i class="fas fa-chevron-down"></i>
+                            </a>
+                        </div>
+                        <div class="card-body collapse" id="vpsInfoCollapse">
+                            <pre class="mb-1">Load average : {{ $loadavg }}</pre>
+                            <pre class="mb-1">Memori      : {{ $meminfo }}</pre>
+                            <pre class="mb-0">Disk /      : {{ $diskinfo }}</pre>
+                        </div>
+                    </div>
+
+                    <!-- Stop Streaming Section (moved) -->
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-light">
+                            <h3 class="h5 mb-0"><i class="fas fa-stop-circle me-2"></i>Hentikan Streaming</h3>
+                        </div>
+                        <div class="card-body">
+                            <form action="{{ route('stream.stop') }}" method="POST">
+                                @csrf
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-danger btn-lg"
+                                        @if (!$isStreaming) disabled @endif>
+                                        <i class="fas fa-stop-circle me-1"></i> Hentikan Streaming
+                                    </button>
+                                </div>
+                                @if (!$isStreaming)
+                                    <p class="text-muted text-center mt-2 mb-0">Tidak ada streaming yang aktif</p>
+                                @endif
+                            </form>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Kolom Kanan: YouTube Stream Key, Error/Success Messages, Stop Streaming -->
@@ -198,46 +235,8 @@ ini stream index saya
                         </div>
                     @endif
 
-                    <!-- VPS Info -->
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                            <h3 class="h5 mb-0"><i class="fas fa-server me-2"></i>Info VPS</h3>
-                            <a class="btn btn-link p-0" data-bs-toggle="collapse" href="#vpsInfoCollapse"
-                               role="button" aria-expanded="false" aria-controls="vpsInfoCollapse">
-                                <i class="fas fa-chevron-down"></i>
-                            </a>
-                        </div>
-                        <div class="card-body collapse" id="vpsInfoCollapse">
-                            <pre class="mb-1">Load average : {{ $loadavg }}</pre>
-                            <pre class="mb-1">Memori      : {{ $meminfo }}</pre>
-                            <pre class="mb-0">Disk /      : {{ $diskinfo }}</pre>
-                        </div>
-                    </div>
-
-                    <!-- Stop Streaming Section -->
-                    <div class="card shadow-sm">
-                        <div class="card-header bg-light">
-                            <h3 class="h5 mb-0"><i class="fas fa-stop-circle me-2"></i>Hentikan Streaming</h3>
-                        </div>
-                        <div class="card-body">
-                            <form action="{{ route('stream.stop') }}" method="POST">
-                                @csrf
-                                <div class="d-grid">
-                                    <button type="submit" class="btn btn-danger btn-lg"
-                                        @if (!$isStreaming) disabled @endif>
-                                        <i class="fas fa-stop-circle me-1"></i> Hentikan Streaming
-                                    </button>
-                                </div>
-                                @if (!$isStreaming)
-                                    <p class="text-muted text-center mt-2 mb-0">Tidak ada streaming yang aktif</p>
-                                @endif
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Log Streaming (Full Width: col-md-12) -->
+                    <!-- removed - will relocate to left column -->
+                    
             <div class="row">
                 <div class="col-md-12">
                     <div class="card mb-4 shadow-sm">
