@@ -15,8 +15,6 @@ Route::middleware('auth')->group(function () {
     Route::post('stream/start', [StreamController::class, 'start'])->name('stream.start');
     Route::post('stream/stop', [StreamController::class, 'stop'])->name('stream.stop');
     Route::post('/stream/update-order', [StreamController::class, 'updateOrder'])->name('stream.updateOrder');
-    Route::post('stream/clear-error-log', [StreamController::class, 'clearErrorLog'])->name('stream.clearErrorLog');
-    Route::post('stream/clear-stream-log', [StreamController::class, 'clearStreamLog'])->name('stream.clearStreamLog');
 });
 
 // Route video stream & thumbnail tanpa auth (untuk browser video player & img tag)

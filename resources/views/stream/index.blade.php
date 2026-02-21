@@ -12,35 +12,20 @@ ini stream index saya
                 <div class="col-md-6">
                     <!-- Streaming Status Card -->
                     <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <div class="card-header bg-light">
                             <h3 class="h5 mb-0"><i class="fas fa-info-circle me-2"></i>Status Streaming</h3>
-                            <a href="{{ route('stream.index') }}" class="btn btn-sm btn-outline-primary" title="Refresh Status">
-                                <i class="fas fa-sync-alt"></i>
-                            </a>
                         </div>
                         <div class="card-body">
                             @if ($isStreaming)
-                                @if ($ffmpegRunning)
-                                    <div class="alert alert-success d-flex align-items-center" role="alert">
-                                        <div class="me-3">
-                                            <i class="fas fa-circle-play fa-2x"></i>
-                                        </div>
-                                        <div>
-                                            <h4 class="alert-heading mb-1">Streaming Aktif!</h4>
-                                            <p class="mb-0">Proses streaming sedang berjalan dengan lancar.</p>
-                                        </div>
+                                <div class="alert alert-success d-flex align-items-center" role="alert">
+                                    <div class="me-3">
+                                        <i class="fas fa-circle-play fa-2x"></i>
                                     </div>
-                                @else
-                                    <div class="alert alert-warning d-flex align-items-center" role="alert">
-                                        <div class="me-3">
-                                            <i class="fas fa-exclamation-triangle fa-2x"></i>
-                                        </div>
-                                        <div>
-                                            <h4 class="alert-heading mb-1">Streaming Bermasalah</h4>
-                                            <p class="mb-0">Proses PM2 berjalan, tetapi FFmpeg terputus atau sedang restart. YouTube mungkin tidak menerima video.</p>
-                                        </div>
+                                    <div>
+                                        <h4 class="alert-heading mb-1">Streaming Aktif!</h4>
+                                        <p class="mb-0">Proses streaming sedang berjalan dengan lancar.</p>
                                     </div>
-                                @endif
+                                </div>
                             @else
                                 <div class="alert alert-secondary d-flex align-items-center" role="alert">
                                     <div class="me-3">
@@ -146,11 +131,8 @@ ini stream index saya
                                             class="form-control @error('youtube_key') is-invalid @enderror"
                                             value="{{ $setting->youtube_key ?? '' }}" required
                                             placeholder="Masukkan kunci streaming YouTube">
-                                        <button class="btn btn-outline-secondary toggle-password" type="button" title="Tampilkan/Sembunyikan Kunci">
+                                        <button class="btn btn-outline-secondary toggle-password" type="button">
                                             <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-outline-secondary copy-key" type="button" title="Salin Kunci">
-                                            <i class="fas fa-copy"></i>
                                         </button>
                                     </div>
                                     @error('youtube_key')
@@ -195,87 +177,25 @@ ini stream index saya
                     <div class="card mb-4 shadow-sm">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center">
                             <h3 class="h5 mb-0"><i class="fas fa-clipboard-list me-2"></i>Log Streaming</h3>
-                            <div>
-                                @if (!empty($streamLog) && $streamLog !== "Log file tidak ditemukan. Periksa izin atau proses streaming.")
-                                    <form action="{{ route('stream.clearStreamLog') }}" method="POST" class="d-inline me-2">
-                                        @csrf
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary" onclick="return confirm('Apakah Anda yakin ingin membersihkan log streaming?')">
-                                            <i class="fas fa-eraser"></i> Bersihkan Log
-                                        </button>
-                                    </form>
-                                @endif
-                                <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#streamLogCollapse" aria-expanded="false"
-                                    aria-controls="streamLogCollapse">
-                                    <i class="fas fa-chevron-down"></i>
-                                </button>
-                            </div>
+                            <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#streamLogCollapse" aria-expanded="false"
+                                aria-controls="streamLogCollapse">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
                         </div>
                         <div class="card-body collapse" id="streamLogCollapse">
                             @if ($isStreaming && !empty($streamLog))
                                 <div class="terminal-container bg-dark text-light p-3 rounded">
                                     <div class="terminal-header mb-2 d-flex justify-content-between align-items-center">
                                         <span class="text-muted">Live Streaming Logs</span>
-                                        <div>
-                                            <button class="btn btn-sm btn-outline-secondary copy-log me-2" data-target="streamLogContent" title="Salin Log">
-                                                <i class="fas fa-copy"></i>
-                                            </button>
-                                            <span class="badge bg-success">Active</span>
-                                        </div>
+                                        <span class="badge bg-success">Active</span>
                                     </div>
-                                    <pre id="streamLogContent" class="mb-0 terminal-content" style="max-height: 300px; overflow-y: auto;">{{ $streamLog }}</pre>
+                                    <pre class="mb-0 terminal-content" style="max-height: 300px; overflow-y: auto;">{{ $streamLog }}</pre>
                                 </div>
                             @else
                                 <div class="text-center py-4">
                                     <i class="fas fa-clipboard fa-3x text-muted mb-3"></i>
                                     <p class="text-muted">Tidak ada log streaming yang tersedia</p>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Error Log (Full Width: col-md-12) -->
-            <div class="row">
-                <div class="col-md-12">
-                    <div class="card mb-4 shadow-sm border-danger">
-                        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
-                            <h3 class="h5 mb-0"><i class="fas fa-exclamation-circle me-2"></i>Log Error</h3>
-                            <div>
-                                @if (!empty($errorLog))
-                                    <form action="{{ route('stream.clearErrorLog') }}" method="POST" class="d-inline me-2">
-                                        @csrf
-                                        <button type="submit" class="btn btn-sm btn-outline-light" onclick="return confirm('Apakah Anda yakin ingin menghapus log error?')">
-                                            <i class="fas fa-trash-alt"></i> Bersihkan Log
-                                        </button>
-                                    </form>
-                                @endif
-                                <button class="btn btn-link text-white text-decoration-none p-0 collapse-toggle-btn" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#errorLogCollapse" aria-expanded="false"
-                                    aria-controls="errorLogCollapse">
-                                    <i class="fas fa-chevron-down"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="card-body collapse" id="errorLogCollapse">
-                            @if (!empty($errorLog))
-                                <div class="terminal-container bg-dark text-danger p-3 rounded" style="border-color: #dc3545;">
-                                    <div class="terminal-header mb-2 d-flex justify-content-between align-items-center" style="background-color: #5a1a1a;">
-                                        <span class="text-light">Error Logs</span>
-                                        <div>
-                                            <button class="btn btn-sm btn-outline-light copy-log me-2" data-target="errorLogContent" title="Salin Log">
-                                                <i class="fas fa-copy"></i>
-                                            </button>
-                                            <span class="badge bg-danger">Error</span>
-                                        </div>
-                                    </div>
-                                    <pre id="errorLogContent" class="mb-0 terminal-content text-danger" style="max-height: 300px; overflow-y: auto;">{{ $errorLog }}</pre>
-                                </div>
-                            @else
-                                <div class="text-center py-4">
-                                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
-                                    <p class="text-muted">Tidak ada log error yang tercatat</p>
                                 </div>
                             @endif
                         </div>
@@ -644,49 +564,6 @@ ini stream index saya
                         passwordInput.type = 'password';
                         icon.classList.remove('fa-eye-slash');
                         icon.classList.add('fa-eye');
-                    }
-                });
-            });
-
-            // Copy YouTube Key
-            document.querySelectorAll('.copy-key').forEach(button => {
-                button.addEventListener('click', function() {
-                    const passwordInput = document.getElementById('youtube_key');
-                    if (passwordInput.value) {
-                        navigator.clipboard.writeText(passwordInput.value).then(() => {
-                            const icon = this.querySelector('i');
-                            icon.classList.remove('fa-copy');
-                            icon.classList.add('fa-check', 'text-success');
-                            setTimeout(() => {
-                                icon.classList.remove('fa-check', 'text-success');
-                                icon.classList.add('fa-copy');
-                            }, 2000);
-                        }).catch(err => {
-                            console.error('Failed to copy text: ', err);
-                            alert('Gagal menyalin kunci.');
-                        });
-                    }
-                });
-            });
-
-            // Copy Log Content
-            document.querySelectorAll('.copy-log').forEach(button => {
-                button.addEventListener('click', function() {
-                    const targetId = this.getAttribute('data-target');
-                    const logContent = document.getElementById(targetId);
-                    if (logContent && logContent.textContent) {
-                        navigator.clipboard.writeText(logContent.textContent).then(() => {
-                            const icon = this.querySelector('i');
-                            icon.classList.remove('fa-copy');
-                            icon.classList.add('fa-check', 'text-success');
-                            setTimeout(() => {
-                                icon.classList.remove('fa-check', 'text-success');
-                                icon.classList.add('fa-copy');
-                            }, 2000);
-                        }).catch(err => {
-                            console.error('Failed to copy log: ', err);
-                            alert('Gagal menyalin log.');
-                        });
                     }
                 });
             });
