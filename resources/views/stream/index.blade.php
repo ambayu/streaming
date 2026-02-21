@@ -40,6 +40,18 @@ ini stream index saya
                         </div>
                     </div>
 
+                    <!-- Saat ini diputar -->
+                    @if ($isStreaming && !empty($playingLine))
+                        <div class="card mb-4 shadow-sm">
+                            <div class="card-header bg-light">
+                                <h3 class="h5 mb-0"><i class="fas fa-headphones me-2"></i>Video Sedang Diperankan</h3>
+                            </div>
+                            <div class="card-body">
+                                <pre class="mb-0">{{ $playingLine }}</pre>
+                            </div>
+                        </div>
+                    @endif
+
                     <!-- Daftar Video yang Dijalankan -->
                     @if ($isStreaming && !empty($streamingVideos))
                         <div class="card mb-4 shadow-sm">
@@ -147,6 +159,18 @@ ini stream index saya
                             </form>
                         </div>
                     </div>
+
+                    <!-- Last error lines -->
+                    @if(!empty(trim($lastErrors)))
+                        <div class="card mb-4 shadow-sm">
+                            <div class="card-header bg-light">
+                                <h3 class="h5 mb-0 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Baris ERROR Terakhir</h3>
+                            </div>
+                            <div class="card-body">
+                                <pre class="text-danger mb-0">{{ $lastErrors }}</pre>
+                            </div>
+                        </div>
+                    @endif
 
                     <!-- Stop Streaming Section -->
                     <div class="card shadow-sm">

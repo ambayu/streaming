@@ -41,16 +41,23 @@ class StreamController extends Controller
         $pm2Status = $pm2StatusProcess->isSuccessful() ? trim($pm2StatusProcess->getOutput()) : 'Tidak ada proses PM2 aktif';
 
         $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
-        $streamLog = '';
+        $streamLog = 'Log file tidak ditemukan. Periksa izin atau proses streaming.';
+        $lastErrors = '';
+        $playingLine = '';
         if (file_exists($logFile)) {
             $streamLog = shell_exec("tail -n 50 " . escapeshellarg($logFile));
-        } else {
-            $streamLog = "Log file tidak ditemukan. Periksa izin atau proses streaming.";
+            // ambil baris error terakhir agar bisa ditampilkan
+            $lastErrors = shell_exec("grep -i -n 'error' " . escapeshellarg($logFile) . " | tail -n 20");
+            // ambil baris streaming terakhir untuk tampilkan video sedang dimainkan
+            $playingLine = shell_exec("grep -i 'Streaming ' " . escapeshellarg($logFile) . " | tail -n 1");
         }
 
         $streamingVideos = Session::get('streaming_videos_' . auth()->id(), []);
 
-        return view('stream.index', compact('setting', 'videos', 'isStreaming', 'pm2Status', 'streamLog', 'streamingVideos'));
+        return view('stream.index', compact(
+            'setting', 'videos', 'isStreaming',
+            'pm2Status', 'streamLog', 'lastErrors', 'playingLine', 'streamingVideos'
+        ));
     }
 
     public function storeKey(Request $request)
@@ -153,7 +160,12 @@ while true; do
   for f in "\${VIDEOS[@]}"; do
     echo "\$(date): Streaming \$f" >> "\$LOGFILE"
 
-    ffmpeg -re -i "\$f" -c:v copy -c:a copy -flvflags no_duration_filesize -f flv "rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY" >> "\$LOGFILE" 2>&1
+    # run with nice/ionice, single thread, minimal logging
+    nice -n 19 ionice -c2 -n7 \
+      ffmpeg -re -i "\$f" -threads 1 \
+             -c:v copy -c:a copy -loglevel error \
+             -flvflags no_duration_filesize -f flv "rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY" \
+      >>"\$LOGFILE" 2>&1
 
     if [ \$? -ne 0 ]; then
       echo "\$(date): ERROR streaming \$f" >> "\$LOGFILE"
