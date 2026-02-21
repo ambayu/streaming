@@ -7,6 +7,20 @@ ini stream index saya
             <h1 class="h4 mb-0"><i class="fas fa-broadcast-tower me-2"></i>Manajemen Streaming Langsung</h1>
         </div>
         <div class="card-body">
+            {{-- button kontrol start/stop --}}
+            <div class="mb-3">
+                <div class="btn-group" role="group">
+                    @if($isStreaming)
+                        <form action="{{ route('stream.stop') }}" method="POST" class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-danger">Stop Streaming</button>
+                        </form>
+                    @endif
+                    <button class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#startForm">
+                        {{ $isStreaming ? 'Playlist / Mulai Lagi' : 'Start Streaming' }}
+                    </button>
+                </div>
+            </div>
             <div class="row">
                 <!-- Kolom Kiri: Status Streaming, PM2 Status, Daftar Video yang Dijalankan -->
                 <div class="col-md-6">
@@ -160,17 +174,37 @@ ini stream index saya
                         </div>
                     </div>
 
-                    <!-- Last error lines -->
+                    <!-- Last error lines (collapsible) -->
                     @if(!empty(trim($lastErrors)))
                         <div class="card mb-4 shadow-sm">
-                            <div class="card-header bg-light">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
                                 <h3 class="h5 mb-0 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Baris ERROR Terakhir</h3>
+                                <a class="btn btn-link text-danger p-0" data-bs-toggle="collapse" href="#errorLogCollapse"
+                                   role="button" aria-expanded="false" aria-controls="errorLogCollapse">
+                                    <i class="fas fa-chevron-down"></i>
+                                </a>
                             </div>
-                            <div class="card-body">
+                            <div class="card-body collapse" id="errorLogCollapse">
                                 <pre class="text-danger mb-0">{{ $lastErrors }}</pre>
                             </div>
                         </div>
                     @endif
+
+                    <!-- VPS Info -->
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h3 class="h5 mb-0"><i class="fas fa-server me-2"></i>Info VPS</h3>
+                            <a class="btn btn-link p-0" data-bs-toggle="collapse" href="#vpsInfoCollapse"
+                               role="button" aria-expanded="false" aria-controls="vpsInfoCollapse">
+                                <i class="fas fa-chevron-down"></i>
+                            </a>
+                        </div>
+                        <div class="card-body collapse" id="vpsInfoCollapse">
+                            <pre class="mb-1">Load average : {{ $loadavg }}</pre>
+                            <pre class="mb-1">Memori      : {{ $meminfo }}</pre>
+                            <pre class="mb-0">Disk /      : {{ $diskinfo }}</pre>
+                        </div>
+                    </div>
 
                     <!-- Stop Streaming Section -->
                     <div class="card shadow-sm">
@@ -201,11 +235,10 @@ ini stream index saya
                     <div class="card mb-4 shadow-sm">
                         <div class="card-header bg-light d-flex justify-content-between align-items-center">
                             <h3 class="h5 mb-0"><i class="fas fa-clipboard-list me-2"></i>Log Streaming</h3>
-                            <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#streamLogCollapse" aria-expanded="false"
-                                aria-controls="streamLogCollapse">
+                            <a class="btn btn-link text-decoration-none p-0" data-bs-toggle="collapse" href="#streamLogCollapse"
+                                   role="button" aria-expanded="false" aria-controls="streamLogCollapse">
                                 <i class="fas fa-chevron-down"></i>
-                            </button>
+                            </a>
                         </div>
                         <div class="card-body collapse" id="streamLogCollapse">
                             @if ($isStreaming && !empty($streamLog))
@@ -228,6 +261,7 @@ ini stream index saya
             </div>
 
             <!-- Video Selection Section (Full Width: col-md-12) -->
+            <div class="collapse {{ $isStreaming ? '' : 'show' }}" id="startForm">
             <div class="row">
                 <div class="col-md-12">
                     <div class="card mb-4 shadow-sm">
@@ -313,6 +347,7 @@ ini stream index saya
                     </div>
                 </div>
             </div>
+            </div> <!-- end collapse startForm -->
         </div>
     </div>
 @endsection

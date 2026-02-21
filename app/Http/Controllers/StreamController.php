@@ -52,11 +52,17 @@ class StreamController extends Controller
             $playingLine = shell_exec("grep -i 'Streaming ' " . escapeshellarg($logFile) . " | tail -n 1");
         }
 
+        // informasi VPS: load, memori, disk
+        $loadavg = trim(shell_exec("cut -d ' ' -f1-3 /proc/loadavg"));
+        $meminfo = trim(shell_exec("free -h | awk 'NR==2{print \$3\"/\"\$2\" used (\"\$4\" free)\"}'"));
+        $diskinfo = trim(shell_exec("df -h / | tail -1 | awk '{print \\$3\"/\"\\$2\" used (\\$5\" used)\"}'"));
+
         $streamingVideos = Session::get('streaming_videos_' . auth()->id(), []);
 
         return view('stream.index', compact(
             'setting', 'videos', 'isStreaming',
-            'pm2Status', 'streamLog', 'lastErrors', 'playingLine', 'streamingVideos'
+            'pm2Status', 'streamLog', 'lastErrors', 'playingLine',
+            'streamingVideos', 'loadavg', 'meminfo', 'diskinfo'
         ));
     }
 
