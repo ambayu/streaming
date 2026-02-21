@@ -20,6 +20,8 @@ Route::middleware('auth')->group(function () {
 // Route video stream & thumbnail tanpa auth (untuk browser video player & img tag)
 Route::get('videos/{video}/stream', [VideoController::class, 'stream'])->name('videos.stream');
 Route::get('videos/{video}/thumbnail', [VideoController::class, 'thumbnail'])->name('videos.thumbnail');
+Route::get('/stream/now-playing', [StreamController::class, 'nowPlaying'])
+    ->name('stream.nowPlaying');
 
 Route::get('/', fn() => redirect()->route('videos.index'));
 Route::get('/home', fn() => redirect()->route('videos.index'));

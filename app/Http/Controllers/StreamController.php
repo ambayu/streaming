@@ -4,12 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Video;
 use Illuminate\Http\Request;
-use App\Models\StreamSetting;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Symfony\Component\Process\Process;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class StreamController extends Controller
@@ -19,57 +16,59 @@ class StreamController extends Controller
         $this->middleware('auth');
     }
 
+    /**
+     * DASHBOARD
+     */
     public function index()
     {
         $setting = auth()->user()->streamSettings;
-        $videos = auth()->user()->videos()->orderBy('order')->get();
+        $videos  = auth()->user()->videos()->orderBy('order')->get();
 
         $pm2Name = 'stream_' . auth()->id();
         $pm2Path = '/usr/bin/pm2';
+
         $env = [
             'PM2_HOME' => '/var/www/.pm2',
             'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'
         ];
 
-        $process = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 60);
+        // cek streaming aktif
+        $process = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 10);
         $process->run();
+        $isStreaming = $process->isSuccessful() && trim($process->getOutput()) !== '';
 
-        $isStreaming = $process->isSuccessful() && !empty(trim($process->getOutput()));
-
-        $pm2StatusProcess = new Process([$pm2Path, 'list'], null, $env, null, 60);
+        // status pm2
+        $pm2StatusProcess = new Process([$pm2Path, 'list'], null, $env, null, 10);
         $pm2StatusProcess->run();
-        $pm2Status = $pm2StatusProcess->isSuccessful() ? trim($pm2StatusProcess->getOutput()) : 'Tidak ada proses PM2 aktif';
+        $pm2Status = $pm2StatusProcess->isSuccessful()
+            ? trim($pm2StatusProcess->getOutput())
+            : 'Tidak ada proses PM2 aktif';
 
+        // log streaming
         $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
-        $streamLog = '';
-        if (file_exists($logFile)) {
-            $streamLog = shell_exec("tail -n 50 " . escapeshellarg($logFile));
-        } else {
-            $streamLog = "Log file tidak ditemukan. Periksa izin atau proses streaming.";
-        }
+        $streamLog = file_exists($logFile)
+            ? shell_exec("tail -n 50 " . escapeshellarg($logFile))
+            : '';
 
         $streamingVideos = Session::get('streaming_videos_' . auth()->id(), []);
+        $invalidVideos   = Session::get('invalid_videos_' . auth()->id(), []);
+        $validVideos     = Session::get('valid_videos_' . auth()->id(), []);
 
-        return view('stream.index', compact('setting', 'videos', 'isStreaming', 'pm2Status', 'streamLog', 'streamingVideos'));
+        return view('stream.index', compact(
+            'setting',
+            'videos',
+            'isStreaming',
+            'pm2Status',
+            'streamLog',
+            'streamingVideos',
+            'invalidVideos',
+            'validVideos'
+        ));
     }
 
-    public function storeKey(Request $request)
-    {
-        $request->validate([
-            'youtube_key' => 'required|string|regex:/^[a-zA-Z0-9\-_]+$/',
-        ]);
-
-        try {
-            auth()->user()->streamSettings()->updateOrCreate(
-                ['user_id' => auth()->id()],
-                ['youtube_key' => $request->youtube_key]
-            );
-
-            return redirect()->route('stream.index')->with('success', 'YouTube key berhasil disimpan!');
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Gagal menyimpan YouTube key: ' . $e->getMessage());
-        }
-    }
+    /**
+     * START STREAM 24 JAM NONSTOP
+     */
     public function start(Request $request)
     {
         $request->validate([
@@ -79,144 +78,135 @@ class StreamController extends Controller
 
         $setting = auth()->user()->streamSettings;
         if (!$setting || empty($setting->youtube_key)) {
-            return redirect()->route('stream.index')->with('error', 'YouTube streaming key belum diatur!');
-        }
-
-        $ffmpegCheck = shell_exec('which ffmpeg 2>&1');
-        $pm2Check = shell_exec('which pm2 2>&1');
-
-        if (empty($ffmpegCheck)) {
-            return redirect()->route('stream.index')
-                ->with('error', 'FFmpeg tidak terinstall! Install dengan: sudo apt install ffmpeg');
-        }
-        if (empty($pm2Check)) {
-            return redirect()->route('stream.index')
-                ->with('error', 'PM2 tidak terinstall! Install dengan: sudo npm install pm2 -g');
+            return back()->with('error', 'YouTube streaming key belum diatur!');
         }
 
         try {
             $videoIds = $request->videos;
+
             $videos = Video::whereIn('id', $videoIds)
                 ->where('user_id', auth()->id())
                 ->get()
-                ->sortBy(function ($video) use ($videoIds) {
-                    return array_search($video->id, $videoIds);
-                });
+                ->sortBy(fn($v) => array_search($v->id, $videoIds));
 
-            if ($videos->isEmpty()) {
-                return redirect()->route('stream.index')->with('error', 'Tidak ada video yang valid dipilih!');
+            $validPaths = [];
+            $invalidVideos = [];
+
+            foreach ($videos as $video) {
+                $absolutePath = Storage::disk('public')->path($video->path);
+
+                if (!file_exists($absolutePath)) {
+                    $invalidVideos[] = $video->title . ' (file tidak ditemukan)';
+                    continue;
+                }
+
+                if (!is_readable($absolutePath)) {
+                    $invalidVideos[] = $video->title . ' (tidak bisa dibaca)';
+                    continue;
+                }
+
+                $validPaths[] = realpath($absolutePath);
             }
 
-            // Simpan session video yang diputar
-            $streamingVideos = $videos->map(function ($video) {
-                return [
-                    'id' => $video->id,
-                    'title' => $video->title,
-                    'path' => $video->path,
-                ];
-            })->toArray();
+            if (empty($validPaths)) {
+                return back()->with('error', 'Semua video invalid / rusak!');
+            }
+
+            Session::put('invalid_videos_' . auth()->id(), $invalidVideos);
+            Session::put('valid_videos_' . auth()->id(), $validPaths);
+
+            $streamingVideos = collect($videos)
+                ->filter(
+                    fn($v) =>
+                    in_array(realpath(Storage::disk('public')->path($v->path)), $validPaths)
+                )
+                ->map(fn($v) => [
+                    'id' => $v->id,
+                    'title' => $v->title,
+                    'path' => $v->path
+                ])->values()->toArray();
+
             Session::put('streaming_videos_' . auth()->id(), $streamingVideos);
 
-            $scriptPath = base_path('scripts/stream_' . auth()->id() . '.sh');
-            $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
-            $youtubeKey = $setting->youtube_key;
-
-            // Playlist permanen (TIDAK di /tmp lagi)
+            /**
+             * PLAYLIST TXT
+             */
             $playlistFile = storage_path("app/stream_playlist_" . auth()->id() . ".txt");
-
-            if (!file_exists(dirname($scriptPath))) {
-                if (!mkdir(dirname($scriptPath), 0755, true)) {
-                    throw new \Exception("Gagal membuat direktori scripts!");
-                }
-            }
-
-            // Ambil path absolut video
-            $videoPaths = [];
-            foreach ($videos as $video) {
-                $path = Storage::disk('public')->path($video->path);
-                if (!file_exists($path)) {
-                    throw new \Exception("File video tidak ditemukan: " . $video->path);
-                }
-                $videoPaths[] = $path;
-            }
-
-            // Buat isi playlist concat
             $playlistLines = '';
-            foreach ($videoPaths as $vpath) {
+            foreach ($validPaths as $vpath) {
                 $escaped = str_replace("'", "'\\''", $vpath);
                 $playlistLines .= "file '{$escaped}'\n";
             }
-
-            // Tulis playlist permanen
             file_put_contents($playlistFile, $playlistLines);
 
-            $scriptContent = <<<EOD
+            /**
+             * ENGINE 24 JAM NONSTOP + NOW PLAYING REALTIME
+             */
+            $scriptPath = base_path('scripts/stream_' . auth()->id() . '.sh');
+            $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
+            $youtubeKey = $setting->youtube_key;
+            $nowPlayingFile = storage_path('app/now_playing_' . auth()->id() . '.json');
+
+            $scriptContent = <<<BASH
 #!/bin/bash
-
 LOGFILE="$logFile"
-YOUTUBE_KEY="$youtubeKey"
 PLAYLIST="$playlistFile"
-RTMP_URL="rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY"
+RTMP_URL="rtmps://a.rtmps.youtube.com/live2/$youtubeKey"
+NOW_FILE="$nowPlayingFile"
 
+# Auto create log folder
 mkdir -p "\$(dirname "\$LOGFILE")"
 
-echo "\$(date): [INFO] Playlist: \$PLAYLIST" >> "\$LOGFILE"
-echo "\$(date): [INFO] Mulai streaming YouTube..." >> "\$LOGFILE"
+echo "\$(date): ENGINE START 24 JAM NONSTOP" >> "\$LOGFILE"
 
 while true; do
-  echo "\$(date): [START] FFmpeg running..." >> "\$LOGFILE"
+  echo "\$(date): LOOP PLAYLIST..." >> "\$LOGFILE"
 
-  ffmpeg -y \\
-    -re \\
-    -f concat \\
-    -safe 0 \\
-    -stream_loop -1 \\
-    -i "\$PLAYLIST" \\
-    -c:v libx264 \\
-    -preset veryfast \\
-    -tune zerolatency \\
-    -r 30 \\
-    -g 60 \\
-    -keyint_min 60 \\
-    -b:v 3500k \\
-    -maxrate 3500k \\
-    -bufsize 7000k \\
-    -c:a aac \\
-    -ar 44100 \\
-    -b:a 128k \\
-    -f flv \\
-    "\$RTMP_URL" >> "\$LOGFILE" 2>&1
+  while IFS= read -r line; do
+    FILE=\$(echo "\$line" | sed -E "s/^file '(.*)'$/\\1/")
 
-  EXIT_CODE=\$?
-  echo "\$(date): [WARN] FFmpeg stop (exit: \$EXIT_CODE). Restart 3 detik..." >> "\$LOGFILE"
-  sleep 3
+    if [ ! -f "\$FILE" ]; then
+      echo "\$(date): [SKIP] File hilang -> \$FILE" >> "\$LOGFILE"
+      continue
+    fi
+
+    BASENAME=\$(basename "\$FILE")
+    DURATION=\$(ffprobe -v error -show_entries format=duration -of csv=p=0 "\$FILE")
+    if [ -z "\$DURATION" ]; then
+      DURATION=0
+    fi
+    START_TIME=\$(date +%s)
+
+    echo "{\\"file\\":\\"\$BASENAME\\",\\"start\\":\$START_TIME,\\"duration\\":\$DURATION}" > "\$NOW_FILE"
+
+    echo "\$(date): [PLAYING] \$FILE" >> "\$LOGFILE"
+
+    ffmpeg -re -i "\$FILE" \\
+      -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 \\
+      -c:v libx264 -preset veryfast -tune zerolatency \\
+      -r 30 -g 60 -keyint_min 60 \\
+      -b:v 3500k -maxrate 3500k -bufsize 7000k \\
+      -c:a aac -ar 44100 -b:a 128k \\
+      -f flv "\$RTMP_URL" >> "\$LOGFILE" 2>&1
+
+    echo "\$(date): [END VIDEO]" >> "\$LOGFILE"
+    sleep 2
+  done < "\$PLAYLIST"
+
 done
-EOD;
+BASH;
 
-            if (file_put_contents($scriptPath, $scriptContent) === false) {
-                throw new \Exception("Gagal menulis file script!");
-            }
-
+            file_put_contents($scriptPath, $scriptContent);
             chmod($scriptPath, 0755);
-            chown($scriptPath, 'www-data');
-            chgrp($scriptPath, 'www-data');
 
-            // Stop stream sebelumnya jika ada
-            $this->stop();
+            // stop lama
+            $this->stop(false);
 
-            $pm2Name = 'stream_' . auth()->id();
-            $pm2Path = '/usr/bin/pm2';
-            $env = [
-                'PM2_HOME' => '/var/www/.pm2',
-                'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'
-            ];
-
+            // start pm2
             $process = new Process(
-                [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--output', $logFile, '--error', $logFile],
+                ['/usr/bin/pm2', 'start', $scriptPath, '--name', 'stream_' . auth()->id()],
                 null,
-                $env,
-                null,
-                60
+                ['PM2_HOME' => '/var/www/.pm2']
             );
             $process->run();
 
@@ -224,87 +214,52 @@ EOD;
                 throw new ProcessFailedException($process);
             }
 
-            $checkProcess = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 60);
-            $checkProcess->run();
-
-            if (!$checkProcess->isSuccessful() || empty(trim($checkProcess->getOutput()))) {
-                throw new \Exception("Gagal memulai proses streaming PM2.");
-            }
-
             return redirect()->route('stream.index')
-                ->with('success', 'Streaming berhasil dimulai!')
-                ->with('debug', 'Playlist: ' . count($videos) . ' video(s)');
+                ->with('success', '🔥 Streaming 24 JAM NONSTOP dimulai!');
         } catch (\Exception $e) {
-            file_put_contents(
-                storage_path('logs/stream_error.log'),
-                date('Y-m-d H:i:s') . " - Error: " . $e->getMessage() . "\n" . $e->getTraceAsString() . "\n",
-                FILE_APPEND
-            );
-
-            return redirect()->route('stream.index')
-                ->with('error', 'Gagal memulai streaming: ' . $e->getMessage());
+            return back()->with('error', $e->getMessage());
         }
     }
 
-    public function stop()
+    /**
+     * STOP STREAM
+     */
+    public function stop($redirect = true)
     {
-        try {
-            $pm2Name = 'stream_' . auth()->id();
-            $pm2Path = '/usr/bin/pm2';
-            $env = [
-                'PM2_HOME' => '/var/www/.pm2',
-                'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'
-            ];
+        $pm2Name = 'stream_' . auth()->id();
 
-            $checkProcess = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 60);
-            $checkProcess->run();
+        (new Process(['/usr/bin/pm2', 'delete', $pm2Name], null, [
+            'PM2_HOME' => '/var/www/.pm2'
+        ]))->run();
 
-            if ($checkProcess->isSuccessful() && !empty(trim($checkProcess->getOutput()))) {
-                $deleteProcess = new Process([$pm2Path, 'delete', $pm2Name], null, $env, null, 60);
-                $deleteProcess->run();
-
-                if (!$deleteProcess->isSuccessful()) {
-                    throw new ProcessFailedException($deleteProcess);
-                }
-            }
-
-            Session::forget('streaming_videos_' . auth()->id());
-
-            return redirect()->route('stream.index')->with('success', 'Streaming berhasil dihentikan!');
-        } catch (\Exception $e) {
-            return redirect()->route('stream.index')->with('error', 'Gagal menghentikan streaming: ' . $e->getMessage());
-        }
-    }
-
-
-    public function updateOrder(Request $request)
-    {
-        Log::info('Update order request:', $request->all());
-
-        $request->validate([
-            'order' => 'required|array',
-            'order.*' => 'exists:videos,id',
+        Session::forget([
+            'streaming_videos_' . auth()->id(),
+            'invalid_videos_' . auth()->id(),
+            'valid_videos_' . auth()->id()
         ]);
 
-        try {
-            DB::beginTransaction();
-            foreach ($request->order as $index => $videoId) {
-                Log::info('Updating video ID:', ['id' => $videoId, 'order' => $index + 1]);
-                $updated = Video::where('id', $videoId)
-                    ->where('user_id', auth()->id())
-                    ->update(['order' => $index + 1]);
-
-                if (!$updated) {
-                    Log::warning('No rows updated for video ID:', ['id' => $videoId]);
-                }
-            }
-            DB::commit();
-            Log::info('Video order updated successfully');
-            return response()->json(['success' => true, 'message' => 'Urutan video berhasil disimpan']);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Failed to update order:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return response()->json(['success' => false, 'message' => 'Gagal menyimpan urutan: ' . $e->getMessage()], 500);
+        if ($redirect) {
+            return redirect()->route('stream.index')->with('success', 'Streaming dihentikan!');
         }
+    }
+
+    /**
+     * NOW PLAYING API (Realtime Progress)
+     */
+    public function nowPlaying()
+    {
+        $userId = auth()->id();
+
+        if (!$userId) {
+            return response()->json(['status' => 'idle']);
+        }
+
+        $file = storage_path("app/now_playing_{$userId}.json");
+
+        if (!file_exists($file)) {
+            return response()->json(['status' => 'idle']);
+        }
+
+        return response()->json(json_decode(file_get_contents($file), true));
     }
 }

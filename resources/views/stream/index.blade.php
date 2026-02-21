@@ -56,13 +56,39 @@
                     @endif
 
                     <!-- Debug Info -->
-                    @if (session('debug'))
+                    {{-- ================= VALID / INVALID VIDEO INFO ================= --}}
+                    @if ($isStreaming && (!empty($validVideos) || !empty($invalidVideos)))
                         <div class="card mb-4 shadow-sm">
-                            <div class="card-header bg-info text-white">
-                                <h3 class="h5 mb-0"><i class="fas fa-bug me-2"></i>Debug Info</h3>
+                            <div class="card-header bg-dark text-white">
+                                <h3 class="h5 mb-0">
+                                    <i class="fas fa-file-video me-2"></i>
+                                    Validasi Video Streaming
+                                </h3>
                             </div>
                             <div class="card-body">
-                                <p class="mb-0">{{ session('debug') }}</p>
+
+                                @if (!empty($validVideos))
+                                    <div class="alert alert-success">
+                                        <strong>Video Valid (Siap Streaming):</strong>
+                                        <ul class="mb-0 mt-2">
+                                            @foreach ($validVideos as $path)
+                                                <li>{{ basename($path) }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @endif
+
+                                @if (!empty($invalidVideos))
+                                    <div class="alert alert-danger">
+                                        <strong>Video Bermasalah / Hilang:</strong>
+                                        <ul class="mb-0 mt-2">
+                                            @foreach ($invalidVideos as $bad)
+                                                <li>{{ $bad }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @endif
+
                             </div>
                         </div>
                     @endif
@@ -171,6 +197,33 @@
             </div>
 
             <!-- Log Streaming (Full Width: col-md-12) -->
+            <!-- NOW PLAYING REALTIME -->
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card mb-4 shadow-sm border-warning">
+                        <div class="card-header bg-warning text-dark">
+                            <h3 class="h5 mb-0">
+                                <i class="fas fa-broadcast-tower me-2"></i>NOW PLAYING (Realtime)
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            <h5 id="nowPlayingTitle" class="fw-bold">Menunggu data...</h5>
+
+                            <div class="progress mb-2" style="height:22px;">
+                                <div id="progressBar"
+                                    class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                                    role="progressbar" style="width: 0%">
+                                    0%
+                                </div>
+                            </div>
+
+                            <small id="timeInfo" class="text-muted">
+                                Durasi: - / -
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="row">
                 <div class="col-md-12">
                     <div class="card mb-4 shadow-sm">
@@ -222,7 +275,8 @@
                                             </a>
                                         </div>
                                     @else
-                                        <label class="form-label mb-3">Pilih dan urutkan video untuk streaming (seret untuk mengubah urutan):</label>
+                                        <label class="form-label mb-3">Pilih dan urutkan video untuk streaming (seret untuk
+                                            mengubah urutan):</label>
                                         <div class="mb-3">
                                             <div class="form-check form-switch mb-3">
                                                 <input class="form-check-input" type="checkbox" id="selectAllVideos">
@@ -235,26 +289,26 @@
                                                 <div class="col" data-id="{{ $video->id }}">
                                                     <div class="card h-100 shadow-sm video-card">
                                                         <div class="card-img-top video-thumbnail position-relative bg-dark"
-                                                             style="height:130px;">
+                                                            style="height:130px;">
 
                                                             {{-- Placeholder dengan thumbnail --}}
                                                             <div class="video-placeholder-stream d-flex flex-column align-items-center justify-content-center h-100 text-white"
-                                                                 style="cursor:pointer; background-image:url('{{ route('videos.thumbnail', $video) }}'); background-size:cover; background-position:center;"
-                                                                 data-src="{{ route('videos.stream', $video) }}">
-                                                                <div style="background:rgba(0,0,0,0.45); border-radius:50%; width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
+                                                                style="cursor:pointer; background-image:url('{{ route('videos.thumbnail', $video) }}'); background-size:cover; background-position:center;"
+                                                                data-src="{{ route('videos.stream', $video) }}">
+                                                                <div
+                                                                    style="background:rgba(0,0,0,0.45); border-radius:50%; width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
                                                                     <i class="fas fa-play text-white"></i>
                                                                 </div>
                                                             </div>
 
                                                             {{-- Video element, src lazy --}}
-                                                            <video class="w-100 h-100 d-none"
-                                                                   controls
-                                                                   preload="none"
-                                                                   style="object-fit:contain; position:absolute; top:0; left:0;">
+                                                            <video class="w-100 h-100 d-none" controls preload="none"
+                                                                style="object-fit:contain; position:absolute; top:0; left:0;">
                                                                 Browser Anda tidak mendukung video.
                                                             </video>
 
-                                                            <div class="video-overlay" style="position:absolute; top:5px; right:5px; z-index:10;">
+                                                            <div class="video-overlay"
+                                                                style="position:absolute; top:5px; right:5px; z-index:10;">
                                                                 <div class="form-check form-switch">
                                                                     <input type="checkbox" name="videos[]"
                                                                         id="video_{{ $video->id }}"
@@ -317,7 +371,8 @@
 
         .video-card {
             transition: transform 0.2s, box-shadow 0.2s;
-            cursor: move; /* Mengubah kursor untuk drag */
+            cursor: move;
+            /* Mengubah kursor untuk drag */
         }
 
         .video-card:hover {
@@ -416,6 +471,44 @@
 @endsection
 
 @section('scripts')
+    <script>
+        // NOW PLAYING REALTIME POLLING
+        // NOW PLAYING REALTIME POLLING (SAFE MODE)
+        setInterval(async () => {
+            try {
+                const res = await fetch("{{ route('stream.nowPlaying') }}");
+                const data = await res.json();
+
+                if (!data || data.status === 'idle') return;
+
+                const titleEl = document.getElementById('nowPlayingTitle');
+                const bar = document.getElementById('progressBar');
+                const timeInfo = document.getElementById('timeInfo');
+
+                if (!titleEl || !bar || !timeInfo) return;
+
+                titleEl.innerText = data.file;
+
+                const now = Math.floor(Date.now() / 1000);
+                const elapsed = now - data.start;
+                const duration = parseFloat(data.duration || 0);
+
+                if (duration > 0) {
+                    const percent = Math.min(100, (elapsed / duration) * 100).toFixed(1);
+
+                    bar.style.width = percent + '%';
+                    bar.innerText = percent + '%';
+
+                    timeInfo.innerText =
+                        `Durasi: ${Math.floor(elapsed)}s / ${Math.floor(duration)}s`;
+                }
+
+            } catch (e) {
+                console.log('NowPlaying error', e);
+            }
+        }, 2000);
+    </script>
+
     <!-- SortableJS -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
@@ -423,7 +516,8 @@
             const selectAllCheckbox = document.getElementById('selectAllVideos');
             const videoList = document.getElementById('videoList');
             const form = document.getElementById('streamForm');
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                '{{ csrf_token() }}';
 
             console.log('CSRF Token:', csrfToken);
 
@@ -464,32 +558,34 @@
                     console.log('Fetch URL:', '{{ route('stream.updateOrder') }}');
                     console.log('Sending order:', orderedVideos);
                     fetch('{{ route('stream.updateOrder') }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': csrfToken
-                        },
-                        body: JSON.stringify({ order: orderedVideos })
-                    })
-                    .then(response => {
-                        console.log('Response status:', response.status);
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Save order response:', data);
-                        if (!data.success) {
-                            alert('Gagal menyimpan urutan: ' + data.message);
-                        } else {
-                            alert('Urutan video berhasil disimpan!');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error saving order:', error);
-                        alert('Gagal menyimpan urutan video: ' + error.message);
-                    });
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken
+                            },
+                            body: JSON.stringify({
+                                order: orderedVideos
+                            })
+                        })
+                        .then(response => {
+                            console.log('Response status:', response.status);
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log('Save order response:', data);
+                            if (!data.success) {
+                                alert('Gagal menyimpan urutan: ' + data.message);
+                            } else {
+                                alert('Urutan video berhasil disimpan!');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error saving order:', error);
+                            alert('Gagal menyimpan urutan video: ' + error.message);
+                        });
 
                     // Perbarui DOM dengan input baru
                     const existingCheckboxes = document.querySelectorAll('input[name="videos[]"]');
@@ -575,16 +671,16 @@
             });
 
             // Lazy load video: klik placeholder → tampil video dan play
-            document.querySelectorAll('.video-placeholder-stream').forEach(function (placeholder) {
-                placeholder.addEventListener('click', function (e) {
+            document.querySelectorAll('.video-placeholder-stream').forEach(function(placeholder) {
+                placeholder.addEventListener('click', function(e) {
                     e.stopPropagation(); // jangan trigger card click
-                    const src   = this.dataset.src;
+                    const src = this.dataset.src;
                     const wrapper = this.parentElement;
                     const video = wrapper.querySelector('video');
 
                     if (src && !video.querySelector('source')) {
                         const source = document.createElement('source');
-                        source.src  = src;
+                        source.src = src;
                         source.type = 'video/mp4';
                         video.appendChild(source);
                         video.load();
@@ -597,8 +693,8 @@
             });
 
             // Intersection Observer: preload video saat card masuk viewport
-            const videoObserver = new IntersectionObserver(function (entries) {
-                entries.forEach(function (entry) {
+            const videoObserver = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
                     if (entry.isIntersecting) {
                         const placeholder = entry.target;
                         const src = placeholder.dataset.src;
@@ -606,16 +702,18 @@
                         if (src && video && !video.querySelector('source')) {
                             // Set src tapi belum play (preload none)
                             const source = document.createElement('source');
-                            source.src  = src;
+                            source.src = src;
                             source.type = 'video/mp4';
                             video.appendChild(source);
                         }
                         videoObserver.unobserve(placeholder);
                     }
                 });
-            }, { rootMargin: '150px' });
+            }, {
+                rootMargin: '150px'
+            });
 
-            document.querySelectorAll('.video-placeholder-stream').forEach(function (p) {
+            document.querySelectorAll('.video-placeholder-stream').forEach(function(p) {
                 videoObserver.observe(p);
             });
 
@@ -628,4 +726,3 @@
         });
     </script>
 @endsection
-
