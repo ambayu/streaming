@@ -148,11 +148,12 @@ class StreamController extends Controller
             /**
              * STREAM ENGINE SCRIPT
              */
-            $scriptPath = base_path('scripts/stream_' . auth()->id() . '.sh');
-            $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
+            $userId = auth()->id();
+            $scriptPath = base_path('scripts/stream_' . $userId . '.sh');
+            $logFile = storage_path('logs/stream_' . $userId . '.log');
             $youtubeKey = $setting->youtube_key;
-            $nowPlayingFile = storage_path('app/now_playing_' . auth()->id() . '.json');
-            $concatFile = storage_path("app/stream_concat_" . auth()->id() . ".txt");
+            $nowPlayingFile = storage_path('app/now_playing_' . $userId . '.json');
+            $concatFile = storage_path("app/stream_concat_" . $userId . ".txt");
 
             $scriptContent = <<<BASH
 #!/bin/bash
@@ -161,11 +162,12 @@ PLAYLIST="$playlistFile"
 CONCAT_LIST="$concatFile"
 RTMP_URL="rtmps://a.rtmps.youtube.com/live2/$youtubeKey"
 NOW_FILE="$nowPlayingFile"
+FIFO="/tmp/stream_fifo_{$userId}"
 
 mkdir -p "\$(dirname "\$LOGFILE")"
 
 echo "===============================" >> "\$LOGFILE"
-echo "🚀 STREAM ENGINE START (24 JAM)" >> "\$LOGFILE"
+echo "🚀 STREAM ENGINE START (FIFO MODE)" >> "\$LOGFILE"
 echo "===============================" >> "\$LOGFILE"
 
 # Build ffmpeg concat playlist (hanya butuh sekali)
@@ -186,11 +188,34 @@ if [ ! -s "\$CONCAT_LIST" ]; then
   exit 1
 fi
 
-# Loop luar: restart ffmpeg bila putus
-while true; do
-  echo "\$(date '+%Y-%m-%d %H:%M:%S'): 🔁 FFMPEG START (concat loop)" >> "\$LOGFILE"
+# Cleanup on exit
+cleanup() {
+  kill \$FEEDER_PID 2>/dev/null
+  kill \$KEEPALIVE_PID 2>/dev/null
+  rm -f "\$FIFO"
+}
+trap cleanup EXIT TERM INT
 
-  # Tulis now_playing berdasarkan video pertama di playlist
+# Create FIFO
+rm -f "\$FIFO"
+mkfifo "\$FIFO"
+
+# Expand FIFO pipe buffer to 16MB (mencegah feeder block saat transisi antar video)
+python3 -c "
+import fcntl, os, sys
+try:
+    fd = os.open(sys.argv[1], os.O_RDWR | os.O_NONBLOCK)
+    fcntl.fcntl(fd, 0x407, 16 * 1024 * 1024)
+    os.close(fd)
+except Exception as e:
+    pass
+" "\$FIFO" 2>/dev/null
+
+# Loop luar: restart bila putus
+while true; do
+  echo "\$(date '+%Y-%m-%d %H:%M:%S'): 🔁 STREAM RESTART" >> "\$LOGFILE"
+
+  # Update now_playing
   FIRST_RAW=\$(head -n1 "\$PLAYLIST" | tr -d '\\r')
   FIRST_TITLE=\$(echo "\$FIRST_RAW" | cut -d'|' -f2)
   FIRST_FILE=\$(echo "\$FIRST_RAW" | cut -d'|' -f1 | sed -E "s/^file '(.+)'\$/\\1/")
@@ -198,31 +223,59 @@ while true; do
   [ -z "\$FIRST_DUR" ] && FIRST_DUR=0
   echo "{\\"title\\":\\"\$FIRST_TITLE\\",\\"start\\":\$(date +%s),\\"duration\\":\$FIRST_DUR}" > "\$NOW_FILE"
 
-  ffmpeg -re -f concat -safe 0 -stream_loop -1 \\
-    -avoid_negative_ts make_zero \\
-    -fflags +genpts \\
-    -i "\$CONCAT_LIST" \\
-    -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=30" \\
-    -c:v libx264 -preset veryfast -tune zerolatency \\
-    -pix_fmt yuv420p \\
-    -r 30 -g 60 -keyint_min 60 \\
-    -b:v 1500k -maxrate 1800k -bufsize 3600k \\
-    -x264-params "nal-hrd=cbr:force-cfr=1" \\
-    -c:a aac -ar 44100 -b:a 128k -ac 2 \\
-    -max_muxing_queue_size 9999 \\
-    -threads 2 \\
-    -f flv "\$RTMP_URL" >> "\$LOGFILE" 2>&1 &
-  FFMPEG_PID=\$!
+  # ─────────────────────────────────────────────────────────────
+  # FEEDER: concat demuxer (tanpa -re = full speed, pre-buffer ke FIFO)
+  #   Encode ke H.264/AAC → MPEG-TS → tulis ke FIFO
+  #   Berjalan lebih cepat dari real-time → FIFO selalu penuh
+  #   Saat stall antar file (0.1-0.5s), MAIN tetap baca dari buffer FIFO
+  # ─────────────────────────────────────────────────────────────
+  (
+    while true; do
+      ffmpeg -f concat -safe 0 -stream_loop -1 \\
+        -avoid_negative_ts make_zero \\
+        -fflags +genpts \\
+        -i "\$CONCAT_LIST" \\
+        -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=30" \\
+        -c:v libx264 -preset veryfast -tune zerolatency \\
+        -pix_fmt yuv420p \\
+        -r 30 -g 60 -keyint_min 60 \\
+        -b:v 1500k -maxrate 1800k -bufsize 3600k \\
+        -x264-params "nal-hrd=cbr:force-cfr=1" \\
+        -c:a aac -ar 44100 -b:a 128k -ac 2 \\
+        -max_muxing_queue_size 9999 \\
+        -threads 2 \\
+        -f mpegts - 2>>"\$LOGFILE"
+      echo "\$(date): ⚠ Feeder exit, restart feeder..." >> "\$LOGFILE"
+      sleep 1
+    done
+  ) > "\$FIFO" &
+  FEEDER_PID=\$!
 
-  # Keepalive: touch now_playing setiap 15 detik agar dashboard tahu streaming masih aktif
-  ( while kill -0 \$FFMPEG_PID 2>/dev/null; do sleep 15; touch "\$NOW_FILE"; done ) &
+  # ─────────────────────────────────────────────────────────────
+  # MAIN: baca dari FIFO (-re = real-time) → stream copy → FLV → RTMP
+  #   Stream copy: tidak re-encode, langsung forward ke YouTube
+  #   -re memastikan rate 1x real-time ke YouTube
+  # ─────────────────────────────────────────────────────────────
+  ffmpeg -re \\
+    -fflags +discardcorrupt \\
+    -f mpegts -i "\$FIFO" \\
+    -c:v copy \\
+    -c:a copy \\
+    -max_muxing_queue_size 9999 \\
+    -f flv "\$RTMP_URL" >> "\$LOGFILE" 2>&1 &
+  MAIN_PID=\$!
+
+  # Keepalive: touch now_playing setiap 15 detik
+  ( while kill -0 \$MAIN_PID 2>/dev/null; do sleep 15; touch "\$NOW_FILE"; done ) &
   KEEPALIVE_PID=\$!
 
-  wait \$FFMPEG_PID
+  wait \$MAIN_PID
   EXIT_CODE=\$?
+  kill \$FEEDER_PID 2>/dev/null
   kill \$KEEPALIVE_PID 2>/dev/null
+  wait \$FEEDER_PID 2>/dev/null
 
-  echo "\$(date): ⚠ ffmpeg keluar (exit \$EXIT_CODE). Restart dalam 3 detik..." >> "\$LOGFILE"
+  echo "\$(date): ⚠ MAIN ffmpeg keluar (exit \$EXIT_CODE). Restart dalam 3 detik..." >> "\$LOGFILE"
   sleep 3
 done
 BASH;
@@ -235,7 +288,7 @@ BASH;
 
             // start pm2
             $process = new Process(
-                ['/usr/bin/pm2', 'start', $scriptPath, '--name', 'stream_' . auth()->id()],
+                ['/usr/bin/pm2', 'start', $scriptPath, '--name', 'stream_' . $userId],
                 null,
                 ['PM2_HOME' => '/var/www/.pm2']
             );
@@ -275,6 +328,16 @@ BASH;
         if (file_exists($concatFile)) {
             unlink($concatFile);
         }
+
+        // hapus FIFO pipe
+        $fifoPath = "/tmp/stream_fifo_{$userId}";
+        if (file_exists($fifoPath)) {
+            @unlink($fifoPath);
+        }
+
+        // kill sisa proses ffmpeg yang mungkin tertinggal
+        shell_exec("pkill -f 'stream_{$userId}.sh' 2>/dev/null");
+        shell_exec("pkill -f 'stream_fifo_{$userId}' 2>/dev/null");
 
         Session::forget([
             'streaming_videos_' . $userId,
