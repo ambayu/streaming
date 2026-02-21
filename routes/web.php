@@ -22,8 +22,6 @@ Route::get('videos/{video}/stream', [VideoController::class, 'stream'])->name('v
 Route::get('videos/{video}/thumbnail', [VideoController::class, 'thumbnail'])->name('videos.thumbnail');
 Route::get('/stream/now-playing', [StreamController::class, 'nowPlaying'])
     ->name('stream.nowPlaying');
-Route::get('/stream/log', [StreamController::class, 'streamLog'])
-    ->name('stream.log');
 
 Route::get('/', fn() => redirect()->route('videos.index'));
 Route::get('/home', fn() => redirect()->route('videos.index'));

@@ -47,7 +47,7 @@ class StreamController extends Controller
         // log streaming
         $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
         $streamLog = file_exists($logFile)
-            ? shell_exec("tail -n 80 " . escapeshellarg($logFile))
+            ? shell_exec("tail -n 50 " . escapeshellarg($logFile))
             : '';
 
         $streamingVideos = Session::get('streaming_videos_' . auth()->id(), []);
@@ -67,58 +67,7 @@ class StreamController extends Controller
     }
 
     /**
-     * SIMPAN YOUTUBE STREAM KEY
-     */
-    public function storeKey(Request $request)
-    {
-        $request->validate([
-            'youtube_key' => 'required|string'
-        ]);
-
-        $user = auth()->user();
-
-        // Asumsi Anda memiliki relasi streamSettings() di model User
-        $setting = $user->streamSettings()->firstOrCreate(
-            ['user_id' => $user->id]
-        );
-
-        $setting->youtube_key = $request->youtube_key;
-        $setting->save();
-
-        return back()->with('success', 'YouTube Stream Key berhasil disimpan!');
-    }
-
-    /**
-     * UPDATE URUTAN VIDEO (DRAG & DROP)
-     */
-    public function updateOrder(Request $request)
-    {
-        $request->validate([
-            'order' => 'required|array',
-            'order.*' => 'exists:videos,id'
-        ]);
-
-        try {
-            foreach ($request->order as $index => $id) {
-                Video::where('id', $id)
-                    ->where('user_id', auth()->id())
-                    ->update(['order' => $index]);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Urutan video berhasil diperbarui'
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * START STREAM 24 JAM NONSTOP (SUPER LIGHTWEIGHT METHOD)
+     * START STREAM 24 JAM NONSTOP (PLAYLIST LOOP + NEXT VIDEO)
      */
     public function start(Request $request)
     {
@@ -171,7 +120,7 @@ class StreamController extends Controller
             Session::put('streaming_videos_' . auth()->id(), $validVideos);
 
             /**
-             * PLAYLIST TXT
+             * PLAYLIST TXT (PATH + TITLE)
              */
             $playlistFile = storage_path("app/stream_playlist_" . auth()->id() . ".txt");
             $playlistLines = '';
@@ -185,7 +134,7 @@ class StreamController extends Controller
             file_put_contents($playlistFile, $playlistLines);
 
             /**
-             * STREAM ENGINE (ULTRAFAST - VPS FRIENDLY)
+             * STREAM ENGINE SCRIPT
              */
             $scriptPath = base_path('scripts/stream_' . auth()->id() . '.sh');
             $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
@@ -202,7 +151,7 @@ NOW_FILE="$nowPlayingFile"
 mkdir -p "\$(dirname "\$LOGFILE")"
 
 echo "===============================" >> "\$LOGFILE"
-echo "🚀 STREAM ENGINE START (LIGHTWEIGHT)" >> "\$LOGFILE"
+echo "🚀 STREAM ENGINE START (24 JAM)" >> "\$LOGFILE"
 echo "===============================" >> "\$LOGFILE"
 
 while true; do
@@ -219,26 +168,23 @@ while true; do
 
     DURATION=\$(ffprobe -v error -show_entries format=duration -of csv=p=0 "\$FILE")
     [ -z "\$DURATION" ] && DURATION=0
-    START_TIME=\$(date +%s)
 
-    echo "{\"title\":\"\$TITLE\",\"start\":\$START_TIME,\"duration\":\$DURATION}" > "\$NOW_FILE"
+    START_TIME=\$(date +%s)
+    echo "{\\"title\\":\\"\$TITLE\\",\\"start\\":\$START_TIME,\\"duration\\":\$DURATION}" > "\$NOW_FILE"
 
     echo "\$(date '+%H:%M:%S'): ▶ NOW PLAYING -> \$TITLE" >> "\$LOGFILE"
 
-    ffmpeg -re -thread_queue_size 512 -i "\$FILE" \
-      -vf "scale=1280:720" \
-      -c:v libx264 -preset ultrafast -tune zerolatency \
-      -pix_fmt yuv420p -profile:v main -level 3.1 \
-      -r 30 \
-      -g 60 -keyint_min 60 -sc_threshold 0 \
-      -force_key_frames "expr:gte(t,n_forced*2)" \
-      -b:v 2500k -maxrate 2500k -bufsize 5000k \
-      -c:a aac -ar 44100 -b:a 128k \
-      -threads 2 \
+    ffmpeg -re -i "\$FILE" \\
+      -vf "scale=1280:720" \\
+      -c:v libx264 -preset veryfast -tune zerolatency \\
+      -pix_fmt yuv420p \\
+      -r 30 -g 60 -keyint_min 60 \\
+      -b:v 4500k -maxrate 4500k -bufsize 9000k \\
+      -c:a aac -ar 44100 -b:a 128k \\
       -f flv "\$RTMP_URL" >> "\$LOGFILE" 2>&1
 
     EXIT_CODE=\$?
-    echo "\$(date): ⚠ FFmpeg berhenti (exit \$EXIT_CODE). Lanjut video berikut..." >> "\$LOGFILE"
+    echo "\$(date): ⏹ END VIDEO -> \$TITLE (exit \$EXIT_CODE)" >> "\$LOGFILE"
 
     sleep 2
   done < "\$PLAYLIST"
@@ -265,7 +211,7 @@ BASH;
             }
 
             return redirect()->route('stream.index')
-                ->with('success', '🔥 Streaming 24 JAM NONSTOP (Mode Ringan) dimulai!');
+                ->with('success', '🔥 Streaming 24 JAM NONSTOP dimulai!');
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -283,6 +229,7 @@ BASH;
             'PM2_HOME' => '/var/www/.pm2'
         ]))->run();
 
+        // hapus now playing agar UI berhenti
         $nowPlayingFile = storage_path("app/now_playing_{$userId}.json");
         if (file_exists($nowPlayingFile)) {
             unlink($nowPlayingFile);
@@ -306,42 +253,17 @@ BASH;
     public function nowPlaying()
     {
         $userId = auth()->id();
+
         if (!$userId) {
             return response()->json(['status' => 'idle']);
         }
 
         $file = storage_path("app/now_playing_{$userId}.json");
+
         if (!file_exists($file)) {
             return response()->json(['status' => 'idle']);
         }
 
         return response()->json(json_decode(file_get_contents($file), true));
-    }
-
-    /**
-     * AMBIL LOG STREAMING
-     */
-    public function streamLog()
-    {
-        $userId = auth()->id();
-        if (!$userId) {
-            return response()->json(['lines' => []]);
-        }
-
-        $logFile = storage_path("logs/stream_{$userId}.log");
-
-        if (!file_exists($logFile)) {
-            return response()->json(['lines' => []]);
-        }
-
-        $output = shell_exec("tail -n 100 " . escapeshellarg($logFile));
-
-        if (!$output) {
-            return response()->json(['lines' => []]);
-        }
-
-        $lines = array_filter(explode("\n", trim($output)));
-
-        return response()->json(['lines' => array_values($lines)]);
     }
 }
