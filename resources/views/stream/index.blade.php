@@ -151,73 +151,72 @@
                 </div>
             </div>
 
-            {{-- ─── ROW 2: ERROR NOTIFICATIONS ─────────────────────── --}}
-            <div id="errorNotifRow" class="row mb-3 {{ (empty($invalidVideos) && $isStreaming) ? '' : ($isStreaming ? '' : 'd-none') }}">
+            {{-- ─── ROW 2 merged into ROW 3 header ──────────────────── --}}
+
+            {{-- ─── ROW 3: ERROR NOTIF + LOG BUTTON ─────────────────── --}}
+            <div class="row mb-4">
                 <div class="col-12">
-                    <div class="card border-danger-subtle border shadow-sm" id="errorNotifCard">
-                        <div class="card-header bg-danger-subtle d-flex align-items-center justify-content-between py-2">
-                            <span class="fw-semibold text-danger small">
-                                <i class="fas fa-circle-exclamation me-2"></i>Notifikasi Error
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-1">
+                        {{-- Error summary chip (ringan, tidak polling) --}}
+                        <div id="errorChip" class="d-flex align-items-center gap-2 {{ empty($invalidVideos) ? 'd-none' : '' }}">
+                            <span class="badge bg-danger rounded-pill px-3 py-2">
+                                <i class="fas fa-circle-exclamation me-1"></i>
+                                <span id="errorChipCount">{{ count($invalidVideos) }}</span> video bermasalah
                             </span>
-                            <span id="errorCount" class="badge bg-danger rounded-pill">0</span>
                         </div>
-                        <div class="card-body p-0">
-                            <ul id="errorList" class="list-group list-group-flush mb-0">
-                                @if (!empty($invalidVideos))
-                                    @foreach ($invalidVideos as $bad)
-                                        <li class="list-group-item list-group-item-danger py-2 small">
-                                            <i class="fas fa-film me-2 opacity-75"></i>{{ $bad }}
-                                        </li>
-                                    @endforeach
-                                @else
-                                    <li class="list-group-item text-muted text-center py-3 small" id="noErrorItem">
-                                        <i class="fas fa-check-circle text-success me-2"></i>Tidak ada error terdeteksi
-                                    </li>
-                                @endif
-                            </ul>
+                        <div class="ms-auto">
+                            <button class="btn btn-sm btn-outline-secondary" id="btnOpenLog">
+                                <i class="fas fa-terminal me-1"></i>Lihat Log Streaming
+                                <span id="logLiveDot" class="ms-1 live-dot-sm {{ $isStreaming ? '' : 'd-none' }}"></span>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {{-- ─── ROW 3: SMART LOG VIEWER ─────────────────────────── --}}
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-header bg-transparent border-bottom d-flex align-items-center justify-content-between">
-                            <span class="fw-semibold small text-uppercase text-muted tracking-wide">
-                                <i class="fas fa-terminal me-2"></i>Log Streaming
-                            </span>
-                            <div class="d-flex gap-2 align-items-center">
-                                <span id="logBadge" class="badge bg-secondary">idle</span>
-                                <button class="btn btn-outline-secondary btn-xs py-0 px-2" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#smartLogCollapse">
-                                    <i class="fas fa-chevron-down small"></i>
-                                </button>
+            {{-- ─── LOG MODAL ───────────────────────────────────────────── --}}
+            <div class="modal fade" id="logModal" tabindex="-1" aria-labelledby="logModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content bg-dark text-light border-0">
+                        <div class="modal-header border-secondary py-2">
+                            <div class="d-flex align-items-center gap-3 flex-wrap flex-grow-1">
+                                <span class="fw-semibold small text-uppercase tracking-wide" id="logModalLabel">
+                                    <i class="fas fa-terminal me-1 text-success"></i>Log Streaming
+                                </span>
+                                <div class="log-tab-bar d-flex gap-1">
+                                    <button class="log-tab-btn active" data-filter="all">Semua</button>
+                                    <button class="log-tab-btn" data-filter="error">
+                                        <i class="fas fa-circle-xmark text-danger me-1"></i>Error
+                                        <span id="tabErrorCount" class="badge bg-danger ms-1 rounded-pill">0</span>
+                                    </button>
+                                    <button class="log-tab-btn" data-filter="play">
+                                        <i class="fas fa-play text-success me-1"></i>Playing
+                                    </button>
+                                    <button class="log-tab-btn" data-filter="warn">
+                                        <i class="fas fa-triangle-exclamation text-warning me-1"></i>Warn
+                                    </button>
+                                </div>
+                                <span id="logBadge" class="badge bg-secondary ms-auto">idle</span>
+                            </div>
+                            <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-0">
+                            <div id="smartLog" class="smart-log-container" style="height:65vh;">
+                                <div class="text-center py-5 text-muted" id="logEmpty">
+                                    <i class="fas fa-circle-notch fa-spin fa-2x mb-2 d-block opacity-50"></i>
+                                    Memuat log...
+                                </div>
                             </div>
                         </div>
-                        {{-- Tab filter --}}
-                        <div class="collapse show" id="smartLogCollapse">
-                            <div class="log-tab-bar px-3 pt-2 d-flex gap-2 border-bottom">
-                                <button class="log-tab-btn active" data-filter="all">Semua</button>
-                                <button class="log-tab-btn" data-filter="error">
-                                    <span class="text-danger"><i class="fas fa-circle-xmark me-1"></i>Error</span>
-                                    <span id="tabErrorCount" class="badge bg-danger ms-1">0</span>
+                        <div class="modal-footer border-secondary py-2 d-flex justify-content-between">
+                            <small id="logMeta" class="text-muted">-</small>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" id="btnScrollTop">
+                                    <i class="fas fa-arrow-up"></i>
                                 </button>
-                                <button class="log-tab-btn" data-filter="playing">
-                                    <span class="text-success"><i class="fas fa-play me-1"></i>Playing</span>
+                                <button class="btn btn-sm btn-outline-light" id="btnScrollBottom">
+                                    <i class="fas fa-arrow-down"></i> Terbaru
                                 </button>
-                                <button class="log-tab-btn" data-filter="warning">
-                                    <span class="text-warning"><i class="fas fa-triangle-exclamation me-1"></i>Warning</span>
-                                </button>
-                            </div>
-                            <div class="card-body p-0">
-                                <div id="smartLog" class="smart-log-container">
-                                    <div class="text-center py-5 text-muted" id="logEmpty">
-                                        <i class="fas fa-clipboard fa-2x mb-2 d-block opacity-50"></i>
-                                        Log belum tersedia
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -372,33 +371,38 @@
             display: flex; align-items: center; justify-content: center; flex-shrink: 0;
         }
 
-        /* ── SMART LOG ────────────────────────────── */
+        /* ── SMART LOG MODAL ──────────────────────── */
         .smart-log-container {
-            max-height: 340px; overflow-y: auto;
-            background: #0d1117; border-radius: 0 0 8px 8px;
+            overflow-y: auto; background: #0d1117;
+            contain: strict;
         }
         .log-entry {
             display: flex; align-items: flex-start; gap: 8px;
-            padding: 5px 14px; border-bottom: 1px solid #21262d;
-            font-family: 'Consolas','Courier New',monospace; font-size: .78rem;
-            line-height: 1.5;
+            padding: 4px 14px; border-bottom: 1px solid #161b22;
+            font-family: 'Consolas','Courier New',monospace; font-size: .76rem;
+            line-height: 1.45;
         }
-        .log-entry:last-child { border-bottom: none; }
-        .log-entry.log-error   { color: #ff7b72; background: rgba(248,81,73,.06); }
-        .log-entry.log-warn    { color: #d29922; background: rgba(210,153,34,.05); }
-        .log-entry.log-play    { color: #3fb950; }
-        .log-entry.log-loop    { color: #58a6ff; }
-        .log-entry.log-info    { color: #8b949e; }
-        .log-entry .log-icon   { flex-shrink: 0; width: 16px; text-align: center; margin-top: 1px; }
-        .log-entry .log-text   { flex: 1; white-space: pre-wrap; word-break: break-all; }
-        .log-tab-bar           { background: #161b22; gap: 4px; padding-bottom: 0; overflow-x: auto; }
+        .log-entry.log-error { color: #ff7b72; background: rgba(248,81,73,.07); }
+        .log-entry.log-warn  { color: #d29922; }
+        .log-entry.log-play  { color: #3fb950; }
+        .log-entry.log-loop  { color: #58a6ff; }
+        .log-entry.log-info  { color: #6e7681; }
+        .log-entry .log-icon { flex-shrink:0; width:14px; text-align:center; }
+        .log-entry .log-text { flex:1; white-space:pre-wrap; word-break:break-all; }
+        .log-tab-bar         { gap:0; }
         .log-tab-btn {
-            background: none; border: none; padding: 6px 12px;
-            font-size: .78rem; color: #8b949e; border-bottom: 2px solid transparent;
-            cursor: pointer; white-space: nowrap;
+            background:none; border:none; padding:4px 10px;
+            font-size:.75rem; color:#6e7681;
+            border-bottom: 2px solid transparent; cursor:pointer;
         }
-        .log-tab-btn.active    { color: #58a6ff; border-bottom-color: #58a6ff; }
-        .log-tab-btn:hover:not(.active) { color: #c9d1d9; }
+        .log-tab-btn.active  { color:#58a6ff; border-bottom-color:#58a6ff; }
+        .log-tab-btn:hover:not(.active) { color:#c9d1d9; }
+        /* Live dot kecil */
+        .live-dot-sm {
+            display:inline-block; width:6px; height:6px; border-radius:50%;
+            background:#3fb950; animation:livePulse 1.2s ease-in-out infinite;
+            vertical-align:middle;
+        }
 
         /* ── TRACKING WIDE ────────────────────────── */
         .tracking-wide { letter-spacing: .06em; }
@@ -428,11 +432,11 @@
         .sortable .col.sortable-ghost  { opacity: .3; outline: 2px dashed #0d6efd; }
 
         /* ── SCROLLBAR DARK ───────────────────────── */
-        .smart-log-container::-webkit-scrollbar,
-        .playlist-scroll::-webkit-scrollbar { width: 5px; }
-        .smart-log-container::-webkit-scrollbar-track,
+        .smart-log-container::-webkit-scrollbar { width: 4px; }
+        .smart-log-container::-webkit-scrollbar-track { background: #0d1117; }
+        .smart-log-container::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+        .playlist-scroll::-webkit-scrollbar { width: 4px; }
         .playlist-scroll::-webkit-scrollbar-track { background: #0d1117; }
-        .smart-log-container::-webkit-scrollbar-thumb,
         .playlist-scroll::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
 
         @media (max-width:767px) {
@@ -449,10 +453,6 @@
     // ─── NOW PLAYING (2s interval) ───────────────────────────────────────────
     const NP_URL  = "{{ route('stream.nowPlaying') }}";
     const LOG_URL = "{{ route('stream.log') }}";
-
-    let logFilter  = 'all';
-    let allLogLines = [];
-    let knownErrors = new Set();
 
     function fmtTime(s) {
         s = Math.floor(s);
@@ -497,36 +497,48 @@
         } catch(e) {}
     }, 2000);
 
-    // ─── SMART LOG (5s interval) ─────────────────────────────────────────────
+    // ─── LOG ON-DEMAND (hanya polling saat modal terbuka) ───────────────────
+    let logFilter  = 'all';
+    let allLogLines = [];
+    let logPollTimer = null;
+    let autoScroll = true;
+
     function classifyLine(line) {
-        if (/❌|FILE HILANG|No such file|Error|error|FATAL|mux_open|rtmp|Connection refused/i.test(line)) return 'error';
-        if (/⚠|keluar|Restart|exit|warn|warning|buffering|bandwidth|bitrate drop/i.test(line)) return 'warn';
-        if (/▶|NOW PLAYING|Playing/i.test(line)) return 'play';
+        if (/❌|FILE HILANG|No such file|\bError\b|\berror\b|FATAL|mux_open|rtmp.*fail|Connection refused/i.test(line)) return 'error';
+        if (/⚠|keluar|Restart|\bexit\b|\bwarn\b|buffering|bitrate drop/i.test(line)) return 'warn';
+        if (/▶|NOW PLAYING/i.test(line)) return 'play';
         if (/🔁|LOOP|FFMPEG START/i.test(line)) return 'loop';
         return 'info';
     }
-    function iconOf(cls) {
-        return {error:'⊗', warn:'⚠', play:'▶', loop:'↺', info:'·'}[cls];
-    }
+
     function renderLog() {
         const container = document.getElementById('smartLog');
-        const emptyEl   = document.getElementById('logEmpty');
         if (!container) return;
-        const filtered = logFilter === 'all' ? allLogLines
+        const filtered = logFilter === 'all'
+            ? allLogLines
             : allLogLines.filter(l => classifyLine(l) === logFilter);
+
         if (!filtered.length) {
-            container.innerHTML = '';
-            if (emptyEl) { emptyEl.style.display = ''; container.appendChild(emptyEl); }
+            container.innerHTML = `<div class="text-center py-5 text-muted" id="logEmpty">
+                <i class="fas fa-clipboard fa-2x mb-2 d-block opacity-50"></i>Log belum tersedia</div>`;
             return;
         }
-        if (emptyEl) emptyEl.style.display = 'none';
-        container.innerHTML = filtered.map(line => {
+
+        // Render hanya 300 baris terakhir agar DOM ringan
+        const visible = filtered.slice(-300);
+        const icons   = {error:'⊗',warn:'⚠',play:'▶',loop:'↺',info:'·'};
+        const html    = visible.map(line => {
             const cls  = classifyLine(line);
-            const icon = iconOf(cls);
             const safe = line.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            return `<div class="log-entry log-${cls}"><span class="log-icon">${icon}</span><span class="log-text">${safe}</span></div>`;
+            return `<div class="log-entry log-${cls}"><span class="log-icon">${icons[cls]}</span><span class="log-text">${safe}</span></div>`;
         }).join('');
-        container.scrollTop = container.scrollHeight;
+        container.innerHTML = html;
+
+        // Meta info
+        const meta = document.getElementById('logMeta');
+        if (meta) meta.innerText = `${filtered.length} baris (${visible.length} ditampilkan)`;
+
+        if (autoScroll) container.scrollTop = container.scrollHeight;
     }
 
     async function fetchLog() {
@@ -534,50 +546,68 @@
             const data = await fetch(LOG_URL).then(r => r.json());
             allLogLines = data.lines || [];
 
-            // Update badge
-            const badge = document.getElementById('logBadge');
-            if (badge) {
-                if (allLogLines.length) {
-                    badge.className = 'badge bg-success'; badge.innerText = 'live';
-                } else {
-                    badge.className = 'badge bg-secondary'; badge.innerText = 'idle';
-                }
-            }
-
-            // Error count tab
-            const errors   = allLogLines.filter(l => classifyLine(l) === 'error');
+            const badge   = document.getElementById('logBadge');
             const errCount = document.getElementById('tabErrorCount');
+            const errors  = allLogLines.filter(l => classifyLine(l) === 'error');
+
+            if (badge) {
+                badge.className = allLogLines.length ? 'badge bg-success' : 'badge bg-secondary';
+                badge.innerText = allLogLines.length ? 'live' : 'idle';
+            }
             if (errCount) errCount.innerText = errors.length || '0';
 
-            // Error notification panel
-            const newErrors = errors.filter(e => !knownErrors.has(e)).slice(-10);
-            const errorList = document.getElementById('errorList');
-            const errorCountBadge = document.getElementById('errorCount');
-            const errorNotifRow   = document.getElementById('errorNotifRow');
-            const noErrorItem     = document.getElementById('noErrorItem');
-
-            if (newErrors.length && errorList) {
-                if (noErrorItem) noErrorItem.style.display = 'none';
-                newErrors.forEach(err => {
-                    knownErrors.add(err);
-                    const li = document.createElement('li');
-                    li.className = 'list-group-item list-group-item-danger py-2 small';
-                    li.innerHTML = `<i class="fas fa-circle-exclamation me-2"></i>${err.replace(/</g,'&lt;')}`;
-                    errorList.appendChild(li);
-                });
-                if (errorNotifRow) errorNotifRow.classList.remove('d-none');
+            // Update error chip di dashboard (ringan)
+            const chip  = document.getElementById('errorChip');
+            const count = document.getElementById('errorChipCount');
+            if (errors.length && chip) {
+                if (count) count.innerText = errors.length;
+                chip.classList.remove('d-none');
             }
-            if (errorCountBadge) errorCountBadge.innerText = knownErrors.size || '0';
 
             renderLog();
         } catch(e) {}
     }
 
-    fetchLog();
-    setInterval(fetchLog, 5000);
-
     // ─── LOG TABS ────────────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
+        const logModal   = document.getElementById('logModal');
+        const btnOpenLog = document.getElementById('btnOpenLog');
+        const bsModal    = logModal ? new bootstrap.Modal(logModal) : null;
+
+        // Buka log modal
+        if (btnOpenLog && bsModal) {
+            btnOpenLog.addEventListener('click', () => bsModal.show());
+        }
+
+        // Mulai polling saat modal dibuka, hentikan saat ditutup
+        if (logModal) {
+            logModal.addEventListener('shown.bs.modal', () => {
+                fetchLog();
+                logPollTimer = setInterval(fetchLog, 4000);
+            });
+            logModal.addEventListener('hidden.bs.modal', () => {
+                clearInterval(logPollTimer);
+                logPollTimer = null;
+            });
+        }
+
+        // Scroll kontrol
+        const logContainer = document.getElementById('smartLog');
+        if (logContainer) {
+            logContainer.addEventListener('scroll', () => {
+                const nearBottom = logContainer.scrollHeight - logContainer.scrollTop - logContainer.clientHeight < 60;
+                autoScroll = nearBottom;
+            });
+        }
+        document.getElementById('btnScrollBottom')?.addEventListener('click', () => {
+            autoScroll = true;
+            if (logContainer) logContainer.scrollTop = logContainer.scrollHeight;
+        });
+        document.getElementById('btnScrollTop')?.addEventListener('click', () => {
+            autoScroll = false;
+            if (logContainer) logContainer.scrollTop = 0;
+        });
+
         document.querySelectorAll('.log-tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.log-tab-btn').forEach(b => b.classList.remove('active'));

@@ -24,25 +24,37 @@ class StreamController extends Controller
         $setting = auth()->user()->streamSettings;
         $videos  = auth()->user()->videos()->orderBy('order')->get();
 
-        $pm2Name = 'stream_' . auth()->id();
+        $userId  = auth()->id();
+        $pm2Name = 'stream_' . $userId;
         $pm2Path = '/usr/bin/pm2';
 
         $env = [
             'PM2_HOME' => '/var/www/.pm2',
-            'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'
+            'HOME'     => '/var/www',
+            'PATH'     => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin',
         ];
 
-        // cek streaming aktif
-        $process = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 10);
-        $process->run();
-        $isStreaming = $process->isSuccessful() && trim($process->getOutput()) !== '';
+        // ── Cek streaming aktif ──────────────────────────────────────────
+        // Primary: cek file now_playing (tidak memerlukan PM2 I/O)
+        $nowPlayingFile = storage_path("app/now_playing_{$userId}.json");
+        $isStreamingByFile = file_exists($nowPlayingFile)
+            && (time() - filemtime($nowPlayingFile)) < 45;
 
-        // status pm2
-        $pm2StatusProcess = new Process([$pm2Path, 'list'], null, $env, null, 10);
-        $pm2StatusProcess->run();
-        $pm2Status = $pm2StatusProcess->isSuccessful()
-            ? trim($pm2StatusProcess->getOutput())
-            : 'Tidak ada proses PM2 aktif';
+        // Secondary: tanya PM2 (timeout pendek, dibungkus try/catch)
+        $isStreamingByPm2 = false;
+        try {
+            $process = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 5);
+            $process->run();
+            $isStreamingByPm2 = $process->isSuccessful()
+                && trim($process->getOutput()) !== '';
+        } catch (\Throwable $e) {
+            // timeout / not found — abaikan, gunakan file-based
+        }
+
+        $isStreaming = $isStreamingByFile || $isStreamingByPm2;
+
+        // pm2Status tidak lagi ditampilkan di UI, skip eksekusi
+        $pm2Status = '';
 
         // log streaming
         $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
@@ -186,19 +198,32 @@ while true; do
   [ -z "\$FIRST_DUR" ] && FIRST_DUR=0
   echo "{\\"title\\":\\"\$FIRST_TITLE\\",\\"start\\":\$(date +%s),\\"duration\\":\$FIRST_DUR}" > "\$NOW_FILE"
 
-  ffmpeg -f concat -safe 0 -stream_loop -1 -i "\$CONCAT_LIST" \\
-    -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2" \\
+  ffmpeg -re -f concat -safe 0 -stream_loop -1 \\
+    -avoid_negative_ts make_zero \\
+    -fflags +genpts \\
+    -i "\$CONCAT_LIST" \\
+    -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=30" \\
     -c:v libx264 -preset veryfast -tune zerolatency \\
     -pix_fmt yuv420p \\
     -r 30 -g 60 -keyint_min 60 \\
-    -b:v 2500k -maxrate 3000k -bufsize 6000k \\
+    -b:v 1500k -maxrate 1800k -bufsize 3600k \\
+    -x264-params "nal-hrd=cbr:force-cfr=1" \\
     -c:a aac -ar 44100 -b:a 128k -ac 2 \\
+    -max_muxing_queue_size 9999 \\
     -threads 2 \\
-    -f flv "\$RTMP_URL" >> "\$LOGFILE" 2>&1
+    -f flv "\$RTMP_URL" >> "\$LOGFILE" 2>&1 &
+  FFMPEG_PID=\$!
 
+  # Keepalive: touch now_playing setiap 15 detik agar dashboard tahu streaming masih aktif
+  ( while kill -0 \$FFMPEG_PID 2>/dev/null; do sleep 15; touch "\$NOW_FILE"; done ) &
+  KEEPALIVE_PID=\$!
+
+  wait \$FFMPEG_PID
   EXIT_CODE=\$?
-  echo "\$(date): ⚠ ffmpeg keluar (exit \$EXIT_CODE). Restart dalam 5 detik..." >> "\$LOGFILE"
-  sleep 5
+  kill \$KEEPALIVE_PID 2>/dev/null
+
+  echo "\$(date): ⚠ ffmpeg keluar (exit \$EXIT_CODE). Restart dalam 3 detik..." >> "\$LOGFILE"
+  sleep 3
 done
 BASH;
 
