@@ -70,7 +70,6 @@ class StreamController extends Controller
             return redirect()->back()->with('error', 'Gagal menyimpan YouTube key: ' . $e->getMessage());
         }
     }
-
     public function start(Request $request)
     {
         $request->validate([
@@ -108,6 +107,7 @@ class StreamController extends Controller
                 return redirect()->route('stream.index')->with('error', 'Tidak ada video yang valid dipilih!');
             }
 
+            // Simpan session video yang diputar
             $streamingVideos = $videos->map(function ($video) {
                 return [
                     'id' => $video->id,
@@ -121,12 +121,16 @@ class StreamController extends Controller
             $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
             $youtubeKey = $setting->youtube_key;
 
+            // Playlist permanen (TIDAK di /tmp lagi)
+            $playlistFile = storage_path("app/stream_playlist_" . auth()->id() . ".txt");
+
             if (!file_exists(dirname($scriptPath))) {
                 if (!mkdir(dirname($scriptPath), 0755, true)) {
                     throw new \Exception("Gagal membuat direktori scripts!");
                 }
             }
 
+            // Ambil path absolut video
             $videoPaths = [];
             foreach ($videos as $video) {
                 $path = Storage::disk('public')->path($video->path);
@@ -136,15 +140,15 @@ class StreamController extends Controller
                 $videoPaths[] = $path;
             }
 
-            $userId = auth()->id();
-            $playlistFile = "/tmp/stream_playlist_{$userId}.txt";
-
-            // Buat isi playlist concat untuk ffmpeg
+            // Buat isi playlist concat
             $playlistLines = '';
             foreach ($videoPaths as $vpath) {
                 $escaped = str_replace("'", "'\\''", $vpath);
                 $playlistLines .= "file '{$escaped}'\n";
             }
+
+            // Tulis playlist permanen
+            file_put_contents($playlistFile, $playlistLines);
 
             $scriptContent = <<<EOD
 #!/bin/bash
@@ -156,33 +160,35 @@ RTMP_URL="rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY"
 
 mkdir -p "\$(dirname "\$LOGFILE")"
 
-# Buat file playlist concat ffmpeg
-cat > "\$PLAYLIST" << 'PLAYLIST_EOF'
-$playlistLines
-PLAYLIST_EOF
-
-echo "\$(date): [INFO] Playlist dibuat: \$PLAYLIST" >> "\$LOGFILE"
-echo "\$(date): [INFO] Memulai streaming ke YouTube..." >> "\$LOGFILE"
+echo "\$(date): [INFO] Playlist: \$PLAYLIST" >> "\$LOGFILE"
+echo "\$(date): [INFO] Mulai streaming YouTube..." >> "\$LOGFILE"
 
 while true; do
-  echo "\$(date): [START] Menjalankan FFmpeg dengan concat loop..." >> "\$LOGFILE"
+  echo "\$(date): [START] FFmpeg running..." >> "\$LOGFILE"
 
-  ffmpeg -y \
-    -re \
-    -f concat \
-    -safe 0 \
-    -stream_loop -1 \
-    -i "\$PLAYLIST" \
-    -c:v copy \
-    -c:a aac \
-    -ar 44100 \
-    -b:a 128k \
-    -flvflags no_duration_filesize \
-    -f flv \
+  ffmpeg -y \\
+    -re \\
+    -f concat \\
+    -safe 0 \\
+    -stream_loop -1 \\
+    -i "\$PLAYLIST" \\
+    -c:v libx264 \\
+    -preset veryfast \\
+    -tune zerolatency \\
+    -r 30 \\
+    -g 60 \\
+    -keyint_min 60 \\
+    -b:v 3500k \\
+    -maxrate 3500k \\
+    -bufsize 7000k \\
+    -c:a aac \\
+    -ar 44100 \\
+    -b:a 128k \\
+    -f flv \\
     "\$RTMP_URL" >> "\$LOGFILE" 2>&1
 
   EXIT_CODE=\$?
-  echo "\$(date): [WARN] FFmpeg berhenti (exit code: \$EXIT_CODE). Restart dalam 3 detik..." >> "\$LOGFILE"
+  echo "\$(date): [WARN] FFmpeg stop (exit: \$EXIT_CODE). Restart 3 detik..." >> "\$LOGFILE"
   sleep 3
 done
 EOD;
@@ -190,12 +196,12 @@ EOD;
             if (file_put_contents($scriptPath, $scriptContent) === false) {
                 throw new \Exception("Gagal menulis file script!");
             }
-            if (!chmod($scriptPath, 0755)) {
-                throw new \Exception("Gagal mengatur izin file script!");
-            }
+
+            chmod($scriptPath, 0755);
             chown($scriptPath, 'www-data');
             chgrp($scriptPath, 'www-data');
 
+            // Stop stream sebelumnya jika ada
             $this->stop();
 
             $pm2Name = 'stream_' . auth()->id();
@@ -221,24 +227,12 @@ EOD;
             $checkProcess = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 60);
             $checkProcess->run();
 
-            $debugLog = [
-                'time' => date('Y-m-d H:i:s'),
-                'command' => implode(' ', [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--output', $logFile, '--error', $logFile, '--no-autorestart']),
-                'output' => $process->getOutput(),
-                'error' => $process->getErrorOutput(),
-                'status_check' => $checkProcess->getOutput(),
-                'script_path' => $scriptPath,
-                'log_file' => $logFile,
-                'videos' => $streamingVideos
-            ];
-            file_put_contents(storage_path('logs/stream_debug.log'), json_encode($debugLog, JSON_PRETTY_PRINT) . "\n", FILE_APPEND);
-
             if (!$checkProcess->isSuccessful() || empty(trim($checkProcess->getOutput()))) {
-                throw new \Exception("Gagal memulai PM2 process. Output: " . ($process->getOutput() ?: 'Tidak ada output'));
+                throw new \Exception("Gagal memulai proses streaming PM2.");
             }
 
             return redirect()->route('stream.index')
-                ->with('success', 'Streaming berhasil dimulai! PM2 process ID: ' . trim($checkProcess->getOutput()))
+                ->with('success', 'Streaming berhasil dimulai!')
                 ->with('debug', 'Playlist: ' . count($videos) . ' video(s)');
         } catch (\Exception $e) {
             file_put_contents(
