@@ -44,10 +44,10 @@ class StreamController extends Controller
             ? trim($pm2StatusProcess->getOutput())
             : 'Tidak ada proses PM2 aktif';
 
-        // log streaming (lebih rapi)
+        // log streaming
         $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
         $streamLog = file_exists($logFile)
-            ? shell_exec("tail -n 80 " . escapeshellarg($logFile))
+            ? shell_exec("tail -n 50 " . escapeshellarg($logFile))
             : '';
 
         $streamingVideos = Session::get('streaming_videos_' . auth()->id(), []);
@@ -89,7 +89,7 @@ class StreamController extends Controller
                 ->get()
                 ->sortBy(fn($v) => array_search($v->id, $videoIds));
 
-            $validPaths = [];
+            $validVideos = [];
             $invalidVideos = [];
 
             foreach ($videos as $video) {
@@ -105,25 +105,19 @@ class StreamController extends Controller
                     continue;
                 }
 
-                $validPaths[] = [
+                $validVideos[] = [
                     'path'  => realpath($absolutePath),
                     'title' => $video->title
                 ];
             }
 
-            if (empty($validPaths)) {
+            if (empty($validVideos)) {
                 return back()->with('error', 'Semua video invalid / rusak!');
             }
 
             Session::put('invalid_videos_' . auth()->id(), $invalidVideos);
-            Session::put('valid_videos_' . auth()->id(), $validPaths);
-
-            $streamingVideos = collect($validPaths)->map(fn($v) => [
-                'title' => $v['title'],
-                'path'  => $v['path']
-            ])->toArray();
-
-            Session::put('streaming_videos_' . auth()->id(), $streamingVideos);
+            Session::put('valid_videos_' . auth()->id(), $validVideos);
+            Session::put('streaming_videos_' . auth()->id(), $validVideos);
 
             /**
              * PLAYLIST TXT (PATH + TITLE)
@@ -131,7 +125,7 @@ class StreamController extends Controller
             $playlistFile = storage_path("app/stream_playlist_" . auth()->id() . ".txt");
             $playlistLines = '';
 
-            foreach ($validPaths as $v) {
+            foreach ($validVideos as $v) {
                 $escapedPath = str_replace("'", "'\\''", $v['path']);
                 $title = str_replace("'", "", $v['title']);
                 $playlistLines .= "file '{$escapedPath}'|{$title}\n";
@@ -140,7 +134,7 @@ class StreamController extends Controller
             file_put_contents($playlistFile, $playlistLines);
 
             /**
-             * ENGINE STREAMING 24 JAM NONSTOP (OPTIMIZED)
+             * ENGINE STREAM 24 JAM NONSTOP (PLAYLIST LOOP BENAR)
              */
             $scriptPath = base_path('scripts/stream_' . auth()->id() . '.sh');
             $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
@@ -173,9 +167,7 @@ while true; do
     fi
 
     DURATION=\$(ffprobe -v error -show_entries format=duration -of csv=p=0 "\$FILE")
-    if [ -z "\$DURATION" ]; then
-      DURATION=0
-    fi
+    [ -z "\$DURATION" ] && DURATION=0
 
     START_TIME=\$(date +%s)
 
@@ -183,22 +175,18 @@ while true; do
 
     echo "\$(date '+%H:%M:%S'): ▶ NOW PLAYING -> \$TITLE" >> "\$LOGFILE"
 
-    while true; do
-      ffmpeg -loglevel error -re -i "\$FILE" \\
-        -vf "scale=1280:720" \\
-        -c:v libx264 -preset ultrafast -tune zerolatency \\
-        -pix_fmt yuv420p \\
-        -r 30 -g 60 -keyint_min 60 \\
-        -b:v 3500k -maxrate 3500k -bufsize 7000k \\
-        -c:a aac -ar 44100 -b:a 128k \\
-        -f flv "\$RTMP_URL" >> "\$LOGFILE" 2>&1
+    ffmpeg -loglevel error -re -i "\$FILE" \\
+      -vf "scale=1280:720" \\
+      -c:v libx264 -preset ultrafast -tune zerolatency \\
+      -pix_fmt yuv420p \\
+      -r 30 -g 60 -keyint_min 60 \\
+      -b:v 3500k -maxrate 3500k -bufsize 7000k \\
+      -c:a aac -ar 44100 -b:a 128k \\
+      -f flv "\$RTMP_URL" >> "\$LOGFILE" 2>&1
 
-      EXIT_CODE=\$?
-      echo "\$(date): ⚠️ STREAM PUTUS (exit \$EXIT_CODE) → RETRY 3 DETIK" >> "\$LOGFILE"
-      sleep 3
-    done
+    EXIT_CODE=\$?
+    echo "\$(date): ⏹ END VIDEO -> \$TITLE (exit \$EXIT_CODE)" >> "\$LOGFILE"
 
-    echo "\$(date): ⏹ END VIDEO -> \$TITLE" >> "\$LOGFILE"
     sleep 2
   done < "\$PLAYLIST"
 
