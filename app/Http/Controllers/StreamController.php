@@ -47,7 +47,7 @@ class StreamController extends Controller
         // log streaming
         $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
         $streamLog = file_exists($logFile)
-            ? shell_exec("tail -n 50 " . escapeshellarg($logFile))
+            ? shell_exec("tail -n 60 " . escapeshellarg($logFile))
             : '';
 
         $streamingVideos = Session::get('streaming_videos_' . auth()->id(), []);
@@ -67,7 +67,7 @@ class StreamController extends Controller
     }
 
     /**
-     * START STREAM 24 JAM NONSTOP
+     * START STREAM 24 JAM NONSTOP + NOW PLAYING TITLE
      */
     public function start(Request $request)
     {
@@ -105,7 +105,10 @@ class StreamController extends Controller
                     continue;
                 }
 
-                $validPaths[] = realpath($absolutePath);
+                $validPaths[] = [
+                    'path'  => realpath($absolutePath),
+                    'title' => $video->title
+                ];
             }
 
             if (empty($validPaths)) {
@@ -115,32 +118,24 @@ class StreamController extends Controller
             Session::put('invalid_videos_' . auth()->id(), $invalidVideos);
             Session::put('valid_videos_' . auth()->id(), $validPaths);
 
-            $streamingVideos = collect($videos)
-                ->filter(
-                    fn($v) =>
-                    in_array(realpath(Storage::disk('public')->path($v->path)), $validPaths)
-                )
-                ->map(fn($v) => [
-                    'id' => $v->id,
-                    'title' => $v->title,
-                    'path' => $v->path
-                ])->values()->toArray();
-
-            Session::put('streaming_videos_' . auth()->id(), $streamingVideos);
+            Session::put('streaming_videos_' . auth()->id(), $validPaths);
 
             /**
-             * PLAYLIST TXT
+             * PLAYLIST TXT (PATH + TITLE)
              */
             $playlistFile = storage_path("app/stream_playlist_" . auth()->id() . ".txt");
             $playlistLines = '';
-            foreach ($validPaths as $vpath) {
-                $escaped = str_replace("'", "'\\''", $vpath);
-                $playlistLines .= "file '{$escaped}'\n";
+
+            foreach ($validPaths as $v) {
+                $escapedPath = str_replace("'", "'\\''", $v['path']);
+                $safeTitle = str_replace(["\n", "\r", "'"], '', $v['title']);
+                $playlistLines .= "file '{$escapedPath}'|{$safeTitle}\n";
             }
+
             file_put_contents($playlistFile, $playlistLines);
 
             /**
-             * ENGINE 24 JAM NONSTOP + NOW PLAYING REALTIME
+             * ENGINE 24 JAM NONSTOP + RETRY + CLEAN LOG
              */
             $scriptPath = base_path('scripts/stream_' . auth()->id() . '.sh');
             $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
@@ -154,42 +149,40 @@ PLAYLIST="$playlistFile"
 RTMP_URL="rtmps://a.rtmps.youtube.com/live2/$youtubeKey"
 NOW_FILE="$nowPlayingFile"
 
-# Auto create log folder
 mkdir -p "\$(dirname "\$LOGFILE")"
 
-echo "\$(date): ENGINE START 24 JAM NONSTOP" >> "\$LOGFILE"
+echo "========== STREAM ENGINE START ==========" >> "\$LOGFILE"
 
 while true; do
-  echo "\$(date): LOOP PLAYLIST..." >> "\$LOGFILE"
+  echo "\$(date '+%F %T'): ===== LOOP PLAYLIST =====" >> "\$LOGFILE"
 
   while IFS= read -r line; do
-    FILE=\$(echo "\$line" | sed -E "s/^file '(.*)'$/\\1/")
+    FILE=\$(echo "\$line" | cut -d'|' -f1 | sed -E "s/^file '(.*)'$/\\1/")
+    TITLE=\$(echo "\$line" | cut -d'|' -f2)
 
     if [ ! -f "\$FILE" ]; then
-      echo "\$(date): [SKIP] File hilang -> \$FILE" >> "\$LOGFILE"
+      echo "\$(date '+%F %T'): [SKIP] File hilang -> \$FILE" >> "\$LOGFILE"
       continue
     fi
 
-    BASENAME=\$(basename "\$FILE")
     DURATION=\$(ffprobe -v error -show_entries format=duration -of csv=p=0 "\$FILE")
-    if [ -z "\$DURATION" ]; then
-      DURATION=0
-    fi
+    [ -z "\$DURATION" ] && DURATION=0
     START_TIME=\$(date +%s)
 
-    echo "{\\"file\\":\\"\$BASENAME\\",\\"start\\":\$START_TIME,\\"duration\\":\$DURATION}" > "\$NOW_FILE"
+    echo "{\\"title\\":\\"\$TITLE\\",\\"start\\":\$START_TIME,\\"duration\\":\$DURATION}" > "\$NOW_FILE"
 
-    echo "\$(date): [PLAYING] \$FILE" >> "\$LOGFILE"
+    echo "\$(date '+%F %T'): ▶ PLAYING -> \$TITLE" >> "\$LOGFILE"
 
-    ffmpeg -re -i "\$FILE" \\
-      -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 \\
-      -c:v libx264 -preset veryfast -tune zerolatency \\
+    ffmpeg -loglevel error -re -i "\$FILE" \\
+      -c:v libx264 -preset veryfast -profile:v high -level 4.2 \\
+      -pix_fmt yuv420p \\
       -r 30 -g 60 -keyint_min 60 \\
-      -b:v 3500k -maxrate 3500k -bufsize 7000k \\
+      -b:v 4500k -maxrate 4500k -bufsize 9000k \\
       -c:a aac -ar 44100 -b:a 128k \\
       -f flv "\$RTMP_URL" >> "\$LOGFILE" 2>&1
 
-    echo "\$(date): [END VIDEO]" >> "\$LOGFILE"
+    EXIT_CODE=\$?
+    echo "\$(date '+%F %T'): [WARN] FFmpeg berhenti (exit \$EXIT_CODE). Lanjut video berikut..." >> "\$LOGFILE"
     sleep 2
   done < "\$PLAYLIST"
 
@@ -244,7 +237,7 @@ BASH;
     }
 
     /**
-     * NOW PLAYING API (Realtime Progress)
+     * NOW PLAYING API
      */
     public function nowPlaying()
     {

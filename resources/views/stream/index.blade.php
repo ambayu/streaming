@@ -487,7 +487,7 @@
 
                 if (!titleEl || !bar || !timeInfo) return;
 
-                titleEl.innerText = data.file;
+                titleEl.innerText = data.title;
 
                 const now = Math.floor(Date.now() / 1000);
                 const elapsed = now - data.start;
