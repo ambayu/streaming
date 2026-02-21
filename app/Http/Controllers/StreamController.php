@@ -136,54 +136,33 @@ class StreamController extends Controller
                 $videoPaths[] = $path;
             }
 
-            $userId = auth()->id();
-            $playlistFile = "/tmp/stream_playlist_{$userId}.txt";
-
-            // Buat isi playlist concat untuk ffmpeg
-            $playlistLines = '';
-            foreach ($videoPaths as $vpath) {
-                $escaped = str_replace("'", "'\\''", $vpath);
-                $playlistLines .= "file '{$escaped}'\n";
-            }
+            $videoList = implode(' ', array_map('escapeshellarg', $videoPaths));
 
             $scriptContent = <<<EOD
 #!/bin/bash
 
 LOGFILE="$logFile"
 YOUTUBE_KEY="$youtubeKey"
-PLAYLIST="$playlistFile"
-RTMP_URL="rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY"
+VIDEOS=($videoList)
 
 mkdir -p "\$(dirname "\$LOGFILE")"
-
-# Buat file playlist concat ffmpeg
-cat > "\$PLAYLIST" << 'PLAYLIST_EOF'
-$playlistLines
-PLAYLIST_EOF
-
-echo "\$(date): [INFO] Playlist dibuat: \$PLAYLIST" >> "\$LOGFILE"
-echo "\$(date): [INFO] Memulai streaming ke YouTube..." >> "\$LOGFILE"
+chown www-data:www-data "\$(dirname "\$LOGFILE")"
+chmod 755 "\$(dirname "\$LOGFILE")"
 
 while true; do
-  echo "\$(date): [START] Menjalankan FFmpeg dengan concat loop..." >> "\$LOGFILE"
+  for f in "\${VIDEOS[@]}"; do
+    echo "\$(date): Streaming \$f" >> "\$LOGFILE"
 
-  ffmpeg -y \
-    -re \
-    -f concat \
-    -safe 0 \
-    -stream_loop -1 \
-    -i "\$PLAYLIST" \
-    -c:v copy \
-    -c:a aac \
-    -ar 44100 \
-    -b:a 128k \
-    -flvflags no_duration_filesize \
-    -f flv \
-    "\$RTMP_URL" >> "\$LOGFILE" 2>&1
+    ffmpeg -re -i "\$f" -c:v copy -c:a copy -flvflags no_duration_filesize -f flv "rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY" >> "\$LOGFILE" 2>&1
 
-  EXIT_CODE=\$?
-  echo "\$(date): [WARN] FFmpeg berhenti (exit code: \$EXIT_CODE). Restart dalam 3 detik..." >> "\$LOGFILE"
-  sleep 3
+    if [ \$? -ne 0 ]; then
+      echo "\$(date): ERROR streaming \$f" >> "\$LOGFILE"
+    else
+      echo "\$(date): Finished \$f" >> "\$LOGFILE"
+    fi
+  done
+  echo "\$(date): Menunggu 10 detik sebelum loop berikutnya..." >> "\$LOGFILE"
+  sleep 10
 done
 EOD;
 
@@ -206,7 +185,7 @@ EOD;
             ];
 
             $process = new Process(
-                [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--output', $logFile, '--error', $logFile],
+                [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--output', $logFile, '--error', $logFile, '--no-autorestart'],
                 null,
                 $env,
                 null,
@@ -238,8 +217,8 @@ EOD;
             }
 
             return redirect()->route('stream.index')
-                ->with('success', 'Streaming berhasil dimulai! PM2 process ID: ' . trim($checkProcess->getOutput()))
-                ->with('debug', 'Playlist: ' . count($videos) . ' video(s)');
+                ->with('success', 'Streaming berhasil dimulai!')
+                ->with('debug', 'Proses ID: ' . trim($checkProcess->getOutput()));
         } catch (\Exception $e) {
             file_put_contents(
                 storage_path('logs/stream_error.log'),
