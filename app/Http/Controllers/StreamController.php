@@ -48,9 +48,22 @@ class StreamController extends Controller
             $streamLog = "Log file tidak ditemukan. Periksa izin atau proses streaming.";
         }
 
+        $errorLogFile = storage_path('logs/stream_error.log');
+        $errorLog = '';
+        if (file_exists($errorLogFile)) {
+            $errorLog = shell_exec("tail -n 50 " . escapeshellarg($errorLogFile));
+        }
+
+        $ffmpegRunning = false;
+        if ($isStreaming) {
+            $playlistFile = "/tmp/stream_playlist_" . auth()->id() . ".txt";
+            $checkFfmpeg = shell_exec("ps aux | grep ffmpeg | grep " . escapeshellarg($playlistFile) . " | grep -v grep");
+            $ffmpegRunning = !empty(trim($checkFfmpeg));
+        }
+
         $streamingVideos = Session::get('streaming_videos_' . auth()->id(), []);
 
-        return view('stream.index', compact('setting', 'videos', 'isStreaming', 'pm2Status', 'streamLog', 'streamingVideos'));
+        return view('stream.index', compact('setting', 'videos', 'isStreaming', 'pm2Status', 'streamLog', 'errorLog', 'ffmpegRunning', 'streamingVideos'));
     }
 
     public function storeKey(Request $request)
@@ -279,6 +292,32 @@ EOD;
             return redirect()->route('stream.index')->with('success', 'Streaming berhasil dihentikan!');
         } catch (\Exception $e) {
             return redirect()->route('stream.index')->with('error', 'Gagal menghentikan streaming: ' . $e->getMessage());
+        }
+    }
+
+    public function clearErrorLog()
+    {
+        try {
+            $errorLogFile = storage_path('logs/stream_error.log');
+            if (file_exists($errorLogFile)) {
+                unlink($errorLogFile);
+            }
+            return redirect()->route('stream.index')->with('success', 'Log error berhasil dihapus!');
+        } catch (\Exception $e) {
+            return redirect()->route('stream.index')->with('error', 'Gagal menghapus log error: ' . $e->getMessage());
+        }
+    }
+
+    public function clearStreamLog()
+    {
+        try {
+            $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
+            if (file_exists($logFile)) {
+                file_put_contents($logFile, ''); // Kosongkan isi file, jangan dihapus karena PM2 mungkin sedang menulis
+            }
+            return redirect()->route('stream.index')->with('success', 'Log streaming berhasil dibersihkan!');
+        } catch (\Exception $e) {
+            return redirect()->route('stream.index')->with('error', 'Gagal membersihkan log streaming: ' . $e->getMessage());
         }
     }
 
