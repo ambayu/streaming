@@ -235,6 +235,10 @@ ini stream index saya
                         </div>
                     @endif
 
+                    <!-- close right column and surrounding row so following sections become full width -->
+                </div> <!-- end col-md-6 -->
+            </div> <!-- end row -->
+
                     <!-- removed - will relocate to left column -->
                     
             <div class="row">
