@@ -1,3 +1,4 @@
+ini stream index saya
 @extends('layouts.app')
 
 @section('content')
@@ -56,39 +57,13 @@
                     @endif
 
                     <!-- Debug Info -->
-                    {{-- ================= VALID / INVALID VIDEO INFO ================= --}}
-                    @if ($isStreaming && (!empty($validVideos) || !empty($invalidVideos)))
+                    @if (session('debug'))
                         <div class="card mb-4 shadow-sm">
-                            <div class="card-header bg-dark text-white">
-                                <h3 class="h5 mb-0">
-                                    <i class="fas fa-file-video me-2"></i>
-                                    Validasi Video Streaming
-                                </h3>
+                            <div class="card-header bg-info text-white">
+                                <h3 class="h5 mb-0"><i class="fas fa-bug me-2"></i>Debug Info</h3>
                             </div>
                             <div class="card-body">
-
-                                @if (!empty($validVideos))
-                                    <div class="alert alert-success">
-                                        <strong>Video Valid (Siap Streaming):</strong>
-                                        <ul class="mb-0 mt-2">
-                                            @foreach ($validVideos as $path)
-                                                <li>{{ basename($path) }}</li>
-                                            @endforeach
-                                        </ul>
-                                    </div>
-                                @endif
-
-                                @if (!empty($invalidVideos))
-                                    <div class="alert alert-danger">
-                                        <strong>Video Bermasalah / Hilang:</strong>
-                                        <ul class="mb-0 mt-2">
-                                            @foreach ($invalidVideos as $bad)
-                                                <li>{{ $bad }}</li>
-                                            @endforeach
-                                        </ul>
-                                    </div>
-                                @endif
-
+                                <p class="mb-0">{{ session('debug') }}</p>
                             </div>
                         </div>
                     @endif
@@ -197,33 +172,6 @@
             </div>
 
             <!-- Log Streaming (Full Width: col-md-12) -->
-            <!-- NOW PLAYING REALTIME -->
-            <div class="row">
-                <div class="col-md-12">
-                    <div class="card mb-4 shadow-sm border-warning">
-                        <div class="card-header bg-warning text-dark">
-                            <h3 class="h5 mb-0">
-                                <i class="fas fa-broadcast-tower me-2"></i>NOW PLAYING (Realtime)
-                            </h3>
-                        </div>
-                        <div class="card-body">
-                            <h5 id="nowPlayingTitle" class="fw-bold">Menunggu data...</h5>
-
-                            <div class="progress mb-2" style="height:22px;">
-                                <div id="progressBar"
-                                    class="progress-bar progress-bar-striped progress-bar-animated bg-success"
-                                    role="progressbar" style="width: 0%">
-                                    0%
-                                </div>
-                            </div>
-
-                            <small id="timeInfo" class="text-muted">
-                                Durasi: - / -
-                            </small>
-                        </div>
-                    </div>
-                </div>
-            </div>
             <div class="row">
                 <div class="col-md-12">
                     <div class="card mb-4 shadow-sm">
@@ -471,54 +419,6 @@
 @endsection
 
 @section('scripts')
-    <script>
-        setInterval(async () => {
-            try {
-                const res = await fetch("{{ route('stream.nowPlaying') }}");
-                const data = await res.json();
-
-                const titleEl = document.getElementById('nowPlayingTitle');
-                const bar = document.getElementById('progressBar');
-                const timeInfo = document.getElementById('timeInfo');
-
-                if (!titleEl || !bar || !timeInfo) return;
-
-                // Jika tidak ada data / streaming stop
-                if (!data || data.status === 'idle') {
-                    titleEl.innerText = 'Tidak ada video diputar';
-                    bar.style.width = '0%';
-                    bar.innerText = '0%';
-                    timeInfo.innerText = 'Durasi: - / -';
-                    return;
-                }
-
-                // Update judul video
-                titleEl.innerText = data.title ?? 'Unknown Video';
-
-                const now = Math.floor(Date.now() / 1000);
-                const elapsed = now - data.start;
-                const duration = parseFloat(data.duration || 0);
-
-                if (duration > 0) {
-                    const percent = Math.min(100, (elapsed / duration) * 100).toFixed(1);
-
-                    bar.style.width = percent + '%';
-                    bar.innerText = percent + '%';
-
-                    timeInfo.innerText =
-                        `Durasi: ${Math.floor(elapsed)}s / ${Math.floor(duration)}s`;
-                } else {
-                    bar.style.width = '0%';
-                    bar.innerText = '0%';
-                    timeInfo.innerText = 'Durasi tidak diketahui';
-                }
-
-            } catch (e) {
-                console.log('NowPlaying error', e);
-            }
-        }, 2000);
-    </script>
-
     <!-- SortableJS -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
