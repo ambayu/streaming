@@ -140,11 +140,13 @@ class StreamController extends Controller
             $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
             $youtubeKey = $setting->youtube_key;
             $nowPlayingFile = storage_path('app/now_playing_' . auth()->id() . '.json');
+            $concatFile = storage_path("app/stream_concat_" . auth()->id() . ".txt");
 
             $scriptContent = <<<BASH
 #!/bin/bash
 LOGFILE="$logFile"
 PLAYLIST="$playlistFile"
+CONCAT_LIST="$concatFile"
 RTMP_URL="rtmps://a.rtmps.youtube.com/live2/$youtubeKey"
 NOW_FILE="$nowPlayingFile"
 
@@ -154,41 +156,49 @@ echo "===============================" >> "\$LOGFILE"
 echo "🚀 STREAM ENGINE START (24 JAM)" >> "\$LOGFILE"
 echo "===============================" >> "\$LOGFILE"
 
+# Build ffmpeg concat playlist (hanya butuh sekali)
+> "\$CONCAT_LIST"
+while IFS= read -r line; do
+  RAW=\$(echo "\$line" | tr -d '\\r')
+  FILE=\$(echo "\$RAW" | cut -d'|' -f1 | sed -E "s/^file '(.+)'\$/\\1/")
+  [ -z "\$FILE" ] && continue
+  if [ ! -f "\$FILE" ]; then
+    echo "\$(date): ❌ FILE HILANG -> \$FILE" >> "\$LOGFILE"
+    continue
+  fi
+  echo "file '\$FILE'" >> "\$CONCAT_LIST"
+done < "\$PLAYLIST"
+
+if [ ! -s "\$CONCAT_LIST" ]; then
+  echo "\$(date): ❌ Concat playlist kosong, henti." >> "\$LOGFILE"
+  exit 1
+fi
+
+# Loop luar: restart ffmpeg bila putus
 while true; do
-  echo "\$(date '+%Y-%m-%d %H:%M:%S'): 🔁 LOOP PLAYLIST" >> "\$LOGFILE"
+  echo "\$(date '+%Y-%m-%d %H:%M:%S'): 🔁 FFMPEG START (concat loop)" >> "\$LOGFILE"
 
-  while IFS= read -r line; do
-    FILE=\$(echo "\$line" | cut -d'|' -f1 | sed -E "s/^file '(.*)'$/\\1/")
-    TITLE=\$(echo "\$line" | cut -d'|' -f2)
+  # Tulis now_playing berdasarkan video pertama di playlist
+  FIRST_RAW=\$(head -n1 "\$PLAYLIST" | tr -d '\\r')
+  FIRST_TITLE=\$(echo "\$FIRST_RAW" | cut -d'|' -f2)
+  FIRST_FILE=\$(echo "\$FIRST_RAW" | cut -d'|' -f1 | sed -E "s/^file '(.+)'\$/\\1/")
+  FIRST_DUR=\$(ffprobe -v error -show_entries format=duration -of csv=p=0 "\$FIRST_FILE" 2>/dev/null)
+  [ -z "\$FIRST_DUR" ] && FIRST_DUR=0
+  echo "{\\"title\\":\\"\$FIRST_TITLE\\",\\"start\\":\$(date +%s),\\"duration\\":\$FIRST_DUR}" > "\$NOW_FILE"
 
-    if [ ! -f "\$FILE" ]; then
-      echo "\$(date): ❌ FILE HILANG -> \$FILE" >> "\$LOGFILE"
-      continue
-    fi
+  ffmpeg -f concat -safe 0 -stream_loop -1 -i "\$CONCAT_LIST" \\
+    -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2" \\
+    -c:v libx264 -preset veryfast -tune zerolatency \\
+    -pix_fmt yuv420p \\
+    -r 30 -g 60 -keyint_min 60 \\
+    -b:v 2500k -maxrate 3000k -bufsize 6000k \\
+    -c:a aac -ar 44100 -b:a 128k -ac 2 \\
+    -threads 2 \\
+    -f flv "\$RTMP_URL" >> "\$LOGFILE" 2>&1
 
-    DURATION=\$(ffprobe -v error -show_entries format=duration -of csv=p=0 "\$FILE")
-    [ -z "\$DURATION" ] && DURATION=0
-
-    START_TIME=\$(date +%s)
-    echo "{\\"title\\":\\"\$TITLE\\",\\"start\\":\$START_TIME,\\"duration\\":\$DURATION}" > "\$NOW_FILE"
-
-    echo "\$(date '+%H:%M:%S'): ▶ NOW PLAYING -> \$TITLE" >> "\$LOGFILE"
-
-    ffmpeg -re -i "\$FILE" \\
-      -vf "scale=1280:720" \\
-      -c:v libx264 -preset veryfast -tune zerolatency \\
-      -pix_fmt yuv420p \\
-      -r 30 -g 60 -keyint_min 60 \\
-      -b:v 4500k -maxrate 4500k -bufsize 9000k \\
-      -c:a aac -ar 44100 -b:a 128k \\
-      -f flv "\$RTMP_URL" >> "\$LOGFILE" 2>&1
-
-    EXIT_CODE=\$?
-    echo "\$(date): ⏹ END VIDEO -> \$TITLE (exit \$EXIT_CODE)" >> "\$LOGFILE"
-
-    sleep 2
-  done < "\$PLAYLIST"
-
+  EXIT_CODE=\$?
+  echo "\$(date): ⚠ ffmpeg keluar (exit \$EXIT_CODE). Restart dalam 5 detik..." >> "\$LOGFILE"
+  sleep 5
 done
 BASH;
 
@@ -235,6 +245,12 @@ BASH;
             unlink($nowPlayingFile);
         }
 
+        // hapus concat playlist
+        $concatFile = storage_path("app/stream_concat_{$userId}.txt");
+        if (file_exists($concatFile)) {
+            unlink($concatFile);
+        }
+
         Session::forget([
             'streaming_videos_' . $userId,
             'invalid_videos_' . $userId,
@@ -245,6 +261,36 @@ BASH;
             return redirect()->route('stream.index')
                 ->with('success', 'Streaming dihentikan!');
         }
+    }
+
+    /**
+     * LOG API — last N lines, JSON
+     */
+    public function streamLog()
+    {
+        $userId = auth()->id();
+        $logFile = storage_path('logs/stream_' . $userId . '.log');
+
+        if (!file_exists($logFile)) {
+            return response()->json(['lines' => []]);
+        }
+
+        // Ambil 150 baris terakhir
+        $lines = [];
+        $fp = new \SplFileObject($logFile, 'r');
+        $fp->seek(PHP_INT_MAX);
+        $total = $fp->key();
+        $start = max(0, $total - 150);
+        $fp->seek($start);
+        while (!$fp->eof()) {
+            $line = rtrim($fp->current());
+            if ($line !== '') {
+                $lines[] = $line;
+            }
+            $fp->next();
+        }
+
+        return response()->json(['lines' => $lines]);
     }
 
     /**
