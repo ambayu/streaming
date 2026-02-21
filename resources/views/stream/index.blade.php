@@ -7,20 +7,6 @@ ini stream index saya
             <h1 class="h4 mb-0"><i class="fas fa-broadcast-tower me-2"></i>Manajemen Streaming Langsung</h1>
         </div>
         <div class="card-body">
-            {{-- button kontrol start/stop --}}
-            <div class="mb-3">
-                <div class="btn-group" role="group">
-                    @if($isStreaming)
-                        <form action="{{ route('stream.stop') }}" method="POST" class="d-inline">
-                            @csrf
-                            <button type="submit" class="btn btn-danger">Stop Streaming</button>
-                        </form>
-                    @endif
-                    <button class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#startForm">
-                        {{ $isStreaming ? 'Playlist / Mulai Lagi' : 'Start Streaming' }}
-                    </button>
-                </div>
-            </div>
             <div class="row">
                 <!-- Kolom Kiri: Status Streaming, PM2 Status, Daftar Video yang Dijalankan -->
                 <div class="col-md-6">
@@ -94,70 +80,6 @@ ini stream index saya
                         </div>
                     @endif
 
-                    <!-- PM2 Process Status with Collapse (Default Closed) -->
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                            <h3 class="h5 mb-0"><i class="fas fa-server me-2"></i>Status Proses PM2</h3>
-                            <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#pm2StatusCollapse" aria-expanded="false"
-                                aria-controls="pm2StatusCollapse">
-                                <i class="fas fa-chevron-down"></i>
-                            </button>
-                        </div>
-                        <div class="card-body collapse" id="pm2StatusCollapse">
-                            @if (!empty($pm2Status))
-                                <div class="terminal-container bg-dark text-light p-3 rounded">
-                                    <div class="terminal-header mb-2 d-flex justify-content-between align-items-center">
-                                        <span class="text-muted">PM2 Process List</span>
-                                        <span class="badge bg-primary">Live</span>
-                                    </div>
-                                    <pre class="mb-0 terminal-content">{{ $pm2Status }}</pre>
-                                </div>
-                            @else
-                                <div class="text-center py-4">
-                                    <i class="fas fa-server fa-3x text-muted mb-3"></i>
-                                    <p class="text-muted">Tidak ada proses PM2 yang sedang berjalan</p>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-
-                    <!-- VPS Info (moved from right column) -->
-                    <div class="card mb-4 shadow-sm">
-                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                            <h3 class="h5 mb-0"><i class="fas fa-server me-2"></i>Info VPS</h3>
-                            <a class="btn btn-link p-0" data-bs-toggle="collapse" href="#vpsInfoCollapse"
-                               role="button" aria-expanded="false" aria-controls="vpsInfoCollapse">
-                                <i class="fas fa-chevron-down"></i>
-                            </a>
-                        </div>
-                        <div class="card-body collapse" id="vpsInfoCollapse">
-                            <pre class="mb-1">Load average : {{ $loadavg }}</pre>
-                            <pre class="mb-1">Memori      : {{ $meminfo }}</pre>
-                            <pre class="mb-0">Disk /      : {{ $diskinfo }}</pre>
-                        </div>
-                    </div>
-
-                    <!-- Stop Streaming Section (moved) -->
-                    <div class="card shadow-sm">
-                        <div class="card-header bg-light">
-                            <h3 class="h5 mb-0"><i class="fas fa-stop-circle me-2"></i>Hentikan Streaming</h3>
-                        </div>
-                        <div class="card-body">
-                            <form action="{{ route('stream.stop') }}" method="POST">
-                                @csrf
-                                <div class="d-grid">
-                                    <button type="submit" class="btn btn-danger btn-lg"
-                                        @if (!$isStreaming) disabled @endif>
-                                        <i class="fas fa-stop-circle me-1"></i> Hentikan Streaming
-                                    </button>
-                                </div>
-                                @if (!$isStreaming)
-                                    <p class="text-muted text-center mt-2 mb-0">Tidak ada streaming yang aktif</p>
-                                @endif
-                            </form>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Kolom Kanan: YouTube Stream Key, Error/Success Messages, Stop Streaming -->
@@ -177,6 +99,36 @@ ini stream index saya
                             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
                     @endif
+
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-light">
+                            <h3 class="h5 mb-0"><i class="fas fa-sliders-h me-2"></i>Kontrol Streaming</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-success btn-lg" type="submit" form="streamForm"
+                                    @if ($isStreaming) disabled @endif>
+                                    <i class="fas fa-play-circle me-1"></i> Mulai Streaming
+                                </button>
+                                <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#startForm" aria-expanded="{{ $isStreaming ? 'false' : 'true' }}"
+                                    aria-controls="startForm">
+                                    <i class="fas fa-list me-1"></i>
+                                    {{ $isStreaming ? 'Playlist / Mulai Lagi' : 'Pilih Video' }}
+                                </button>
+                                <form action="{{ route('stream.stop') }}" method="POST">
+                                    @csrf
+                                    <button type="submit" class="btn btn-danger btn-lg w-100"
+                                        @if (!$isStreaming) disabled @endif>
+                                        <i class="fas fa-stop-circle me-1"></i> Hentikan Streaming
+                                    </button>
+                                </form>
+                            </div>
+                            <p class="text-muted text-center mt-2 mb-0">
+                                {{ $isStreaming ? 'Streaming sedang berjalan' : 'Streaming belum berjalan' }}
+                            </p>
+                        </div>
+                    </div>
 
                     <!-- YouTube Stream Key Section -->
                     <div class="card mb-4 shadow-sm">
@@ -239,8 +191,53 @@ ini stream index saya
                 </div> <!-- end col-md-6 -->
             </div> <!-- end row -->
 
-                    <!-- removed - will relocate to left column -->
-                    
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h3 class="h5 mb-0"><i class="fas fa-server me-2"></i>Status Proses PM2</h3>
+                            <button class="btn btn-link text-decoration-none p-0 collapse-toggle-btn" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#pm2StatusCollapse" aria-expanded="false"
+                                aria-controls="pm2StatusCollapse">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        <div class="card-body collapse" id="pm2StatusCollapse">
+                            @if (!empty($pm2Status))
+                                <div class="terminal-container bg-dark text-light p-3 rounded">
+                                    <div class="terminal-header mb-2 d-flex justify-content-between align-items-center">
+                                        <span class="text-muted">PM2 Process List</span>
+                                        <span class="badge bg-primary">Live</span>
+                                    </div>
+                                    <pre class="mb-0 terminal-content">{{ $pm2Status }}</pre>
+                                </div>
+                            @else
+                                <div class="text-center py-4">
+                                    <i class="fas fa-server fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">Tidak ada proses PM2 yang sedang berjalan</p>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h3 class="h5 mb-0"><i class="fas fa-server me-2"></i>Info VPS</h3>
+                            <a class="btn btn-link p-0" data-bs-toggle="collapse" href="#vpsInfoCollapse"
+                               role="button" aria-expanded="false" aria-controls="vpsInfoCollapse">
+                                <i class="fas fa-chevron-down"></i>
+                            </a>
+                        </div>
+                        <div class="card-body collapse" id="vpsInfoCollapse">
+                            <pre class="mb-1">Load average : {{ $loadavg }}</pre>
+                            <pre class="mb-1">Memori      : {{ $meminfo }}</pre>
+                            <pre class="mb-0">Disk /      : {{ $diskinfo }}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="row">
                 <div class="col-md-12 w-100">
                     <div class="card mb-4 shadow-sm w-100">
@@ -346,13 +343,6 @@ ini stream index saya
                                         @enderror
                                     @endif
                                 </div>
-                                @if (!$videos->isEmpty())
-                                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                                        <button type="submit" class="btn btn-success btn-lg">
-                                            <i class="fas fa-play-circle me-1"></i> Mulai Streaming
-                                        </button>
-                                    </div>
-                                @endif
                             </form>
                         </div>
                     </div>
