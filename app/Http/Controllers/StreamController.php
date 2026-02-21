@@ -182,7 +182,6 @@ while true; do
 
   ffmpeg -y \
     -re \
-    -fflags +genpts \
     -f concat \
     -safe 0 \
     -stream_loop -1 \
@@ -192,8 +191,8 @@ while true; do
     -ar 44100 \
     -b:a 128k \
     -max_muxing_queue_size 1024 \
-    -flvflags no_duration_filesize \
     -f flv \
+    -flvflags no_duration_filesize \
     "\$RTMP_URL" >> "\$LOGFILE" 2>&1
 
   EXIT_CODE=\$?
