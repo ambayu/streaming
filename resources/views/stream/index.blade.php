@@ -179,10 +179,18 @@ ini stream index saya
                         <div class="card mb-4 shadow-sm">
                             <div class="card-header bg-light d-flex justify-content-between align-items-center">
                                 <h3 class="h5 mb-0 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Baris ERROR Terakhir</h3>
-                                <a class="btn btn-link text-danger p-0" data-bs-toggle="collapse" href="#errorLogCollapse"
-                                   role="button" aria-expanded="false" aria-controls="errorLogCollapse">
-                                    <i class="fas fa-chevron-down"></i>
-                                </a>
+                                <div>
+                                    <form action="{{ route('stream.clearErrors') }}" method="POST" class="d-inline me-2">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus log error">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                    <a class="btn btn-link text-danger p-0" data-bs-toggle="collapse" href="#errorLogCollapse"
+                                       role="button" aria-expanded="false" aria-controls="errorLogCollapse">
+                                        <i class="fas fa-chevron-down"></i>
+                                    </a>
+                                </div>
                             </div>
                             <div class="card-body collapse" id="errorLogCollapse">
                                 <pre class="text-danger mb-0">{{ $lastErrors }}</pre>
@@ -596,15 +604,32 @@ ini stream index saya
             // Debugging collapse buttons
             document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
                 console.log('Collapse button initialized:', button);
-                const target = document.querySelector(button.getAttribute('data-bs-target'));
+                // identify collapse target either from data-bs-target or href
+                let selector = button.getAttribute('data-bs-target');
+                if (!selector) {
+                    // anchor may use href attribute with #id
+                    const href = button.getAttribute('href');
+                    if (href && href.startsWith('#')) {
+                        selector = href;
+                    }
+                }
+                if (!selector) {
+                    console.warn('Collapse toggle has no target:', button);
+                    return;
+                }
+                const target = document.querySelector(selector);
+                if (!target) {
+                    console.warn('Collapse target not found for', selector);
+                    return;
+                }
 
                 target.addEventListener('shown.bs.collapse', () => {
                     button.classList.remove('collapsed');
-                    console.log('Collapse shown:', button.getAttribute('data-bs-target'));
+                    console.log('Collapse shown:', selector);
                 });
                 target.addEventListener('hidden.bs.collapse', () => {
                     button.classList.add('collapsed');
-                    console.log('Collapse hidden:', button.getAttribute('data-bs-target'));
+                    console.log('Collapse hidden:', selector);
                 });
             });
 

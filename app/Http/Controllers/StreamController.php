@@ -47,9 +47,19 @@ class StreamController extends Controller
         if (file_exists($logFile)) {
             $streamLog = shell_exec("tail -n 50 " . escapeshellarg($logFile));
             // ambil baris error terakhir agar bisa ditampilkan
-            $lastErrors = shell_exec("grep -i -n 'error' " . escapeshellarg($logFile) . " | tail -n 20");
+            $lastErrors = shell_exec("grep -a -i -n 'error' " . escapeshellarg($logFile) . " | tail -n 20");
             // ambil baris streaming terakhir untuk tampilkan video sedang dimainkan
-            $playingLine = shell_exec("grep -i 'Streaming ' " . escapeshellarg($logFile) . " | tail -n 1");
+            $lastStreamLine = trim(shell_exec("grep -a -i 'Streaming ' " . escapeshellarg($logFile) . " | tail -n 1"));
+            if ($lastStreamLine) {
+                if (preg_match('/Streaming\s+(.*)$/i', $lastStreamLine, $m)) {
+                    $path = trim($m[1]);
+                    $basename = basename($path);
+                    $video = Video::where('path', 'like', "%{$basename}%")->first();
+                    $playingLine = $video ? $video->title : $basename;
+                } else {
+                    $playingLine = $lastStreamLine;
+                }
+            }
         }
 
         // informasi VPS: load, memori, disk
@@ -64,6 +74,15 @@ class StreamController extends Controller
             'pm2Status', 'streamLog', 'lastErrors', 'playingLine',
             'streamingVideos', 'loadavg', 'meminfo', 'diskinfo'
         ));
+    }
+
+    public function clearErrors()
+    {
+        $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
+        if (file_exists($logFile)) {
+            file_put_contents($logFile, '');
+        }
+        return redirect()->route('stream.index')->with('success', 'Error log telah dibersihkan');
     }
 
     public function storeKey(Request $request)
