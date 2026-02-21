@@ -472,14 +472,10 @@
 
 @section('scripts')
     <script>
-        // NOW PLAYING REALTIME POLLING
-        // NOW PLAYING REALTIME POLLING (SAFE MODE)
         setInterval(async () => {
             try {
                 const res = await fetch("{{ route('stream.nowPlaying') }}");
                 const data = await res.json();
-
-                if (!data || data.status === 'idle') return;
 
                 const titleEl = document.getElementById('nowPlayingTitle');
                 const bar = document.getElementById('progressBar');
@@ -487,7 +483,17 @@
 
                 if (!titleEl || !bar || !timeInfo) return;
 
-                titleEl.innerText = data.title;
+                // Jika tidak ada data / streaming stop
+                if (!data || data.status === 'idle') {
+                    titleEl.innerText = 'Tidak ada video diputar';
+                    bar.style.width = '0%';
+                    bar.innerText = '0%';
+                    timeInfo.innerText = 'Durasi: - / -';
+                    return;
+                }
+
+                // Update judul video
+                titleEl.innerText = data.title ?? 'Unknown Video';
 
                 const now = Math.floor(Date.now() / 1000);
                 const elapsed = now - data.start;
@@ -501,6 +507,10 @@
 
                     timeInfo.innerText =
                         `Durasi: ${Math.floor(elapsed)}s / ${Math.floor(duration)}s`;
+                } else {
+                    bar.style.width = '0%';
+                    bar.innerText = '0%';
+                    timeInfo.innerText = 'Durasi tidak diketahui';
                 }
 
             } catch (e) {

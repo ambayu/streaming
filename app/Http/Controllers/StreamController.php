@@ -223,20 +223,30 @@ BASH;
      */
     public function stop($redirect = true)
     {
-        $pm2Name = 'stream_' . auth()->id();
+        $userId = auth()->id();
+        $pm2Name = 'stream_' . $userId;
 
+        // Stop PM2 process
         (new Process(['/usr/bin/pm2', 'delete', $pm2Name], null, [
             'PM2_HOME' => '/var/www/.pm2'
         ]))->run();
 
+        // Hapus file now playing agar UI berhenti
+        $nowPlayingFile = storage_path("app/now_playing_{$userId}.json");
+        if (file_exists($nowPlayingFile)) {
+            unlink($nowPlayingFile);
+        }
+
+        // Clear session
         Session::forget([
-            'streaming_videos_' . auth()->id(),
-            'invalid_videos_' . auth()->id(),
-            'valid_videos_' . auth()->id()
+            'streaming_videos_' . $userId,
+            'invalid_videos_' . $userId,
+            'valid_videos_' . $userId
         ]);
 
         if ($redirect) {
-            return redirect()->route('stream.index')->with('success', 'Streaming dihentikan!');
+            return redirect()->route('stream.index')
+                ->with('success', 'Streaming dihentikan!');
         }
     }
 
