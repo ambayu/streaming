@@ -67,7 +67,7 @@ class StreamController extends Controller
     }
 
     /**
-     * START STREAM 24 JAM NONSTOP + NOW PLAYING TITLE
+     * START STREAM 24 JAM NONSTOP
      */
     public function start(Request $request)
     {
@@ -134,7 +134,7 @@ class StreamController extends Controller
             file_put_contents($playlistFile, $playlistLines);
 
             /**
-             * ENGINE STREAM 24 JAM NONSTOP (PLAYLIST LOOP BENAR)
+             * STREAM ENGINE (RINGAN & STABIL)
              */
             $scriptPath = base_path('scripts/stream_' . auth()->id() . '.sh');
             $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
@@ -175,13 +175,9 @@ while true; do
 
     echo "\$(date '+%H:%M:%S'): ▶ NOW PLAYING -> \$TITLE" >> "\$LOGFILE"
 
-    ffmpeg -loglevel error -re -i "\$FILE" \\
-      -vf "scale=1280:720" \\
-      -c:v libx264 -preset ultrafast -tune zerolatency \\
-      -pix_fmt yuv420p \\
-      -r 30 -g 60 -keyint_min 60 \\
-      -b:v 3500k -maxrate 3500k -bufsize 7000k \\
-      -c:a aac -ar 44100 -b:a 128k \\
+    ffmpeg -re -i "\$FILE" \\
+      -c:v copy \\
+      -c:a aac -b:a 128k -ar 44100 \\
       -f flv "\$RTMP_URL" >> "\$LOGFILE" 2>&1
 
     EXIT_CODE=\$?
@@ -226,18 +222,16 @@ BASH;
         $userId = auth()->id();
         $pm2Name = 'stream_' . $userId;
 
-        // Stop PM2 process
         (new Process(['/usr/bin/pm2', 'delete', $pm2Name], null, [
             'PM2_HOME' => '/var/www/.pm2'
         ]))->run();
 
-        // Hapus file now playing agar UI berhenti
+        // hapus now playing
         $nowPlayingFile = storage_path("app/now_playing_{$userId}.json");
         if (file_exists($nowPlayingFile)) {
             unlink($nowPlayingFile);
         }
 
-        // Clear session
         Session::forget([
             'streaming_videos_' . $userId,
             'invalid_videos_' . $userId,
