@@ -270,8 +270,8 @@ ini stream index saya
             <!-- Video Selection Section (Full Width: col-md-12) -->
             <div class="collapse {{ $isStreaming ? '' : 'show' }}" id="startForm">
             <div class="row">
-                <div class="col-md-12">
-                    <div class="card mb-4 shadow-sm">
+                <div class="col-md-12 w-100">
+                    <div class="card mb-4 shadow-sm w-100">
                         <div class="card-header bg-light">
                             <h3 class="h5 mb-0"><i class="fas fa-video me-2"></i>Pilih Video untuk Streaming</h3>
                         </div>
