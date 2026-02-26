@@ -16,7 +16,7 @@ class StreamController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth');
+        $this->middleware('auth')->except(['nowPlaying']);
     }
 
     public function index()
@@ -331,5 +331,65 @@ EOD;
             Log::error('Failed to update order:', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json(['success' => false, 'message' => 'Gagal menyimpan urutan: ' . $e->getMessage()], 500);
         }
+    }
+
+    public function nowPlaying(Request $request)
+    {
+        $userId = (int) $request->query('user_id', auth()->id() ?? 0);
+
+        if ($userId <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'user_id tidak valid.',
+            ], 422);
+        }
+
+        $pm2Name = 'stream_' . $userId;
+        $pm2Path = '/usr/bin/pm2';
+        $env = [
+            'PM2_HOME' => '/var/www/.pm2',
+            'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'
+        ];
+
+        $pidProcess = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 30);
+        $pidProcess->run();
+        $isStreaming = $pidProcess->isSuccessful() && !empty(trim($pidProcess->getOutput()));
+
+        $logFile = storage_path('logs/stream_' . $userId . '.log');
+        $playingTitle = null;
+        $playingPath = null;
+        $videoId = null;
+        $lastStreamLine = null;
+
+        if (file_exists($logFile)) {
+            $lastStreamLine = trim(shell_exec("grep -a -i 'Streaming ' " . escapeshellarg($logFile) . " | tail -n 1"));
+
+            if (!empty($lastStreamLine) && preg_match('/Streaming\s+(.*)$/i', $lastStreamLine, $m)) {
+                $playingPath = trim($m[1]);
+                $basename = basename($playingPath);
+
+                $video = Video::where('user_id', $userId)
+                    ->where('path', 'like', "%{$basename}%")
+                    ->first();
+
+                if ($video) {
+                    $videoId = $video->id;
+                    $playingTitle = $video->title;
+                } else {
+                    $playingTitle = $basename;
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'user_id' => $userId,
+            'is_streaming' => $isStreaming,
+            'now_playing' => $playingTitle,
+            'video_id' => $videoId,
+            'video_path' => $playingPath,
+            'log_line' => $lastStreamLine,
+            'log_file_exists' => file_exists($logFile),
+        ]);
     }
 }
