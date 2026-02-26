@@ -42,12 +42,15 @@ class StreamController extends Controller
 
         $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
         $streamLog = 'Log file tidak ditemukan. Periksa izin atau proses streaming.';
-        $lastErrors = '';
+        $errorLog = '';
         $playingLine = '';
         if (file_exists($logFile)) {
             $streamLog = shell_exec("tail -n 50 " . escapeshellarg($logFile));
-            // ambil baris error terakhir agar bisa ditampilkan
-            $lastErrors = shell_exec("grep -a -i -n 'error' " . escapeshellarg($logFile) . " | tail -n 20");
+
+            // ambil semua baris yang mengandung kata "error" agar log bersifat persisten sampai kita menghapus manual
+            // sebelumnya hanya menampilkan 20 baris terakhir, sekarang seluruh riwayat kesalahan ditampilkan
+            $errorLog = shell_exec("grep -a -i -n 'error' " . escapeshellarg($logFile));
+
             // ambil baris streaming terakhir untuk tampilkan video sedang dimainkan
             $lastStreamLine = trim(shell_exec("grep -a -i 'Streaming ' " . escapeshellarg($logFile) . " | tail -n 1"));
             if ($lastStreamLine) {
@@ -71,7 +74,7 @@ class StreamController extends Controller
 
         return view('stream.index', compact(
             'setting', 'videos', 'isStreaming',
-            'pm2Status', 'streamLog', 'lastErrors', 'playingLine',
+            'pm2Status', 'streamLog', 'errorLog', 'playingLine',
             'streamingVideos', 'loadavg', 'meminfo', 'diskinfo'
         ));
     }

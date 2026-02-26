@@ -151,11 +151,11 @@ ini stream index saya
                         </div>
                     </div>
 
-                    <!-- Last error lines (collapsible) -->
-                    @if(!empty(trim($lastErrors)))
+                    <!-- Error log yang persisten sampai dihapus manual -->
+                    @if(!empty(trim($errorLog)))
                         <div class="card mb-4 shadow-sm">
                             <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                <h3 class="h5 mb-0 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Baris ERROR Terakhir</h3>
+                                <h3 class="h5 mb-0 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Log ERROR</h3>
                                 <div>
                                     <form action="{{ route('stream.clearErrors') }}" method="POST" class="d-inline me-2">
                                         @csrf
@@ -170,7 +170,7 @@ ini stream index saya
                                 </div>
                             </div>
                             <div class="card-body collapse" id="errorLogCollapse">
-                                <pre class="text-danger mb-0">{{ $lastErrors }}</pre>
+                                <pre class="text-danger mb-0">{{ $errorLog }}</pre>
                             </div>
                         </div>
                     @endif
