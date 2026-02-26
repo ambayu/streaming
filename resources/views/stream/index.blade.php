@@ -151,29 +151,31 @@ ini stream index saya
                         </div>
                     </div>
 
-                    <!-- Error log yang persisten sampai dihapus manual -->
-                    @if(!empty(trim($errorLog)))
-                        <div class="card mb-4 shadow-sm">
-                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                <h3 class="h5 mb-0 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Log ERROR</h3>
-                                <div>
-                                    <form action="{{ route('stream.clearErrors') }}" method="POST" class="d-inline me-2">
-                                        @csrf
-                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus log error">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </form>
-                                    <a class="btn btn-link text-danger p-0" data-bs-toggle="collapse" href="#errorLogCollapse"
-                                       role="button" aria-expanded="false" aria-controls="errorLogCollapse">
-                                        <i class="fas fa-chevron-down"></i>
-                                    </a>
-                                </div>
-                            </div>
-                            <div class="card-body collapse" id="errorLogCollapse">
-                                <pre class="text-danger mb-0">{{ $errorLog }}</pre>
+                    <!-- Error log yang persisten sampai dihapus manual. Menampilkan kartu walaupun kosong agar pengguna tahu di mana melihatnya. -->
+                    <div class="card mb-4 shadow-sm">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h3 class="h5 mb-0 text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Log ERROR</h3>
+                            <div>
+                                <form action="{{ route('stream.clearErrors') }}" method="POST" class="d-inline me-2">
+                                    @csrf
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus log error">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                                <a class="btn btn-link text-danger p-0" data-bs-toggle="collapse" href="#errorLogCollapse"
+                                   role="button" aria-expanded="false" aria-controls="errorLogCollapse">
+                                    <i class="fas fa-chevron-down"></i>
+                                </a>
                             </div>
                         </div>
-                    @endif
+                        <div class="card-body collapse" id="errorLogCollapse">
+                            @if(!empty(trim($errorLog)))
+                                <pre class="text-danger mb-0">{{ $errorLog }}</pre>
+                            @else
+                                <p class="text-muted mb-0">Belum ada error tercatat.</p>
+                            @endif
+                        </div>
+                    </div>
 
                     <!-- close right column and surrounding row so following sections become full width -->
                 </div> <!-- end col-md-6 -->
