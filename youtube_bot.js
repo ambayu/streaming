@@ -5,7 +5,7 @@ const path = require('path');
 async function run() {
     const dashboardUrl = 'https://studio.youtube.com/channel/UCwJTqySv4XgsYb1DEZQ1Beg/livestreaming/dashboard';
     const cookiesPath = path.join(__dirname, 'youtube-cookies.json');
-    const screenshotPath = path.join(__dirname, 'public', 'youtube-status.png');
+    const screenshotPath = '/tmp/youtube-status.png';
 
     console.log('=== Memulai Bot YouTube Go-Live ===');
 
