@@ -17,7 +17,7 @@ class AutoRestartStream extends Command
      *
      * @var string
      */
-    protected $signature = 'stream:auto-restart';
+    protected $signature = 'stream:auto-restart {--user=} {--dry-run}';
 
     /**
      * The console command description.
@@ -74,10 +74,18 @@ class AutoRestartStream extends Command
     {
         $this->logMessage("=== Memulai Proses Auto-Restart Streaming ===");
         $youTubeAutomationService = app(YouTubeAutomationService::class);
+        $targetUserId = $this->option('user');
+        $dryRun = (bool) $this->option('dry-run');
 
         // Cari semua setting streaming yang memiliki riwayat playlist atau video terakhir (agar bisa dinyalakan kembali walau saat ini nonaktif)
-        $activeSettings = StreamSetting::whereNotNull('last_playlist_id')
-            ->orWhereNotNull('last_video_ids')
+        $activeSettings = StreamSetting::when($targetUserId, function ($query) use ($targetUserId) {
+                $query->where('user_id', $targetUserId);
+            })
+            ->where(function ($query) {
+                $query->whereNotNull('last_playlist_id')
+                    ->orWhereNotNull('last_video_ids');
+            })
+            ->whereNotNull('youtube_key')
             ->get();
 
         if ($activeSettings->isEmpty()) {
@@ -104,6 +112,11 @@ class AutoRestartStream extends Command
                 }
 
                 $this->logMessage("YouTube tidak sedang live untuk User $userId. Lanjut proses start.");
+            }
+
+            if ($dryRun) {
+                $this->logMessage("Dry run aktif untuk User $userId. Proses start PM2/FFmpeg dilewati.");
+                continue;
             }
 
             // 1. Dapatkan daftar video terakhir

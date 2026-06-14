@@ -76,6 +76,8 @@
         overflow: hidden;
         margin-bottom: 20px;
         transition: border-color 0.2s;
+        display: flex;
+        flex-direction: column;
     }
 
     .stream-card:hover { border-color: rgba(99,102,241,0.2); }
@@ -106,6 +108,17 @@
 
     .stream-card .card-body-inner {
         padding: 20px;
+        flex: 1;
+    }
+
+    .dashboard-column {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .dashboard-column .stream-card {
+        margin-bottom: 0;
     }
 
     /* ── Collapsible toggle ── */
@@ -408,6 +421,49 @@
         border: 1px solid rgba(148,163,184,0.22);
     }
 
+    .yt-status-inline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+
+    .yt-status-inline .badge-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 11px;
+        border-radius: 999px;
+        font-size: 0.74rem;
+        font-weight: 700;
+        border: 1px solid transparent;
+        letter-spacing: 0.3px;
+    }
+
+    .yt-status-inline .badge-item.success {
+        background: rgba(34,197,94,0.14);
+        border-color: rgba(34,197,94,0.28);
+        color: #4ade80;
+    }
+
+    .yt-status-inline .badge-item.warning {
+        background: rgba(245,158,11,0.14);
+        border-color: rgba(245,158,11,0.28);
+        color: #fbbf24;
+    }
+
+    .yt-status-inline .badge-item.danger {
+        background: rgba(239,68,68,0.14);
+        border-color: rgba(239,68,68,0.28);
+        color: #f87171;
+    }
+
+    .yt-status-inline .badge-item.neutral {
+        background: rgba(148,163,184,0.12);
+        border-color: rgba(148,163,184,0.22);
+        color: var(--text-secondary);
+    }
+
     /* ── Now Playing ── */
     .now-playing-bar {
         display: flex;
@@ -699,6 +755,17 @@
 @endsection
 
 @section('content')
+@php
+    $ytStatus = $setting->youtube_last_prepare_status ?? null;
+    $ytStatusUi = match ($ytStatus) {
+        'ready' => ['label' => 'Cookie Valid', 'class' => 'success'],
+        'already_live' => ['label' => 'Already Live', 'class' => 'success'],
+        'not_live' => ['label' => 'Not Live', 'class' => 'warning'],
+        'login_required' => ['label' => 'Login Required', 'class' => 'danger'],
+        'missing_cookies' => ['label' => 'Cookie Missing', 'class' => 'danger'],
+        default => ['label' => 'Belum Dicek', 'class' => 'neutral'],
+    };
+@endphp
 
 {{-- Page Header --}}
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-3">
@@ -719,7 +786,7 @@
 <div class="row g-4">
 
     {{-- LEFT COLUMN --}}
-    <div class="col-lg-6">
+    <div class="col-lg-6 dashboard-column">
 
         {{-- Now Playing --}}
         @if ($isStreaming && !empty($playingLine))
@@ -876,7 +943,7 @@
     </div>{{-- end left col --}}
 
     {{-- RIGHT COLUMN --}}
-    <div class="col-lg-6">
+    <div class="col-lg-6 dashboard-column">
 
         {{-- Kontrol Streaming --}}
         <div class="stream-card">
@@ -945,6 +1012,21 @@
                 <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:14px;">
                     Konfigurasi YouTube sekarang dipindahkan ke menu terpisah agar halaman streaming tetap fokus ke operasional siaran.
                 </p>
+
+                <div class="yt-status-inline">
+                    <span class="badge-item {{ $ytStatusUi['class'] }}">
+                        <i class="fas fa-circle"></i> {{ $ytStatusUi['label'] }}
+                    </span>
+                    @if (($setting->youtube_last_prepare_status ?? null) === 'already_live')
+                        <span class="badge-item success">
+                            <i class="fas fa-broadcast-tower"></i> YouTube Masih Live
+                        </span>
+                    @elseif (($setting->youtube_last_prepare_status ?? null) === 'not_live')
+                        <span class="badge-item warning">
+                            <i class="fas fa-circle-pause"></i> Aman Untuk Start
+                        </span>
+                    @endif
+                </div>
 
                 <div style="margin-top:14px;padding:12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border-color);">
                     <div class="info-row" style="padding-top:0;">

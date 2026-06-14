@@ -180,10 +180,64 @@
         word-break: break-word;
         flex: 1;
     }
+
+    .status-badge-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        border: 1px solid transparent;
+    }
+
+    .status-pill.success {
+        background: rgba(34,197,94,0.14);
+        border-color: rgba(34,197,94,0.28);
+        color: #4ade80;
+    }
+
+    .status-pill.warning {
+        background: rgba(245,158,11,0.14);
+        border-color: rgba(245,158,11,0.28);
+        color: #fbbf24;
+    }
+
+    .status-pill.danger {
+        background: rgba(239,68,68,0.14);
+        border-color: rgba(239,68,68,0.28);
+        color: #f87171;
+    }
+
+    .status-pill.neutral {
+        background: rgba(148,163,184,0.12);
+        border-color: rgba(148,163,184,0.22);
+        color: var(--text-secondary);
+    }
 </style>
 @endsection
 
 @section('content')
+@php
+    $status = $setting->youtube_last_prepare_status ?? null;
+    $statusUi = match ($status) {
+        'ready' => ['label' => 'Cookie Valid', 'class' => 'success'],
+        'already_live' => ['label' => 'Already Live', 'class' => 'success'],
+        'not_live' => ['label' => 'Not Live', 'class' => 'warning'],
+        'login_required' => ['label' => 'Login Required', 'class' => 'danger'],
+        'missing_cookies' => ['label' => 'Cookie Missing', 'class' => 'danger'],
+        default => ['label' => 'Belum Dicek', 'class' => 'neutral'],
+    };
+@endphp
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-3">
     <div>
         <h1><i class="fab fa-youtube me-2" style="color:#ff4444"></i>Konfigurasi YouTube</h1>
@@ -293,6 +347,21 @@
                 <h3><i class="fas fa-vial"></i> Uji Automasi</h3>
             </div>
             <div class="card-body-inner">
+                <div class="status-badge-grid">
+                    <span class="status-pill {{ $statusUi['class'] }}">
+                        <i class="fas fa-circle"></i> {{ $statusUi['label'] }}
+                    </span>
+                    @if (($setting->youtube_last_prepare_status ?? null) === 'already_live')
+                        <span class="status-pill success">
+                            <i class="fas fa-broadcast-tower"></i> YouTube Masih Live
+                        </span>
+                    @elseif (($setting->youtube_last_prepare_status ?? null) === 'not_live')
+                        <span class="status-pill warning">
+                            <i class="fas fa-circle-pause"></i> Aman Untuk Start
+                        </span>
+                    @endif
+                </div>
+
                 <form action="{{ route('stream.refreshYoutubeStatus') }}" method="POST" style="margin-bottom:12px;">
                     @csrf
                     <button type="submit" class="btn-stream outline">
