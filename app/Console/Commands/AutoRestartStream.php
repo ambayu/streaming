@@ -73,11 +73,13 @@ class AutoRestartStream extends Command
     {
         $this->logMessage("=== Memulai Proses Auto-Restart Streaming ===");
 
-        // Cari semua setting streaming yang berstatus aktif
-        $activeSettings = StreamSetting::where('is_active', true)->get();
+        // Cari semua setting streaming yang memiliki riwayat playlist atau video terakhir (agar bisa dinyalakan kembali walau saat ini nonaktif)
+        $activeSettings = StreamSetting::whereNotNull('last_playlist_id')
+            ->orWhereNotNull('last_video_ids')
+            ->get();
 
         if ($activeSettings->isEmpty()) {
-            $this->logMessage("Tidak ada stream aktif yang perlu di-restart.");
+            $this->logMessage("Tidak ada stream dengan riwayat playlist/video yang perlu dijalankan.");
             return 0;
         }
 
@@ -250,8 +252,12 @@ EOD;
                 }
             }
 
-            if (!$started) {
-                $this->logMessage("Gagal total menjalankan streaming untuk User $userId setelah $maxAttempts kali percobaan.", 'error');
+            if ($started) {
+                $setting->update(['is_active' => true]);
+                $this->logMessage("Status database untuk User $userId diperbarui menjadi AKTIF (is_active = 1).");
+            } else {
+                $setting->update(['is_active' => false]);
+                $this->logMessage("Status database untuk User $userId diperbarui menjadi NONAKTIF (is_active = 0) karena gagal start.", 'error');
             }
         }
 
