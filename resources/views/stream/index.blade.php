@@ -757,14 +757,14 @@
 @section('content')
 @php
     $ytStatus = $setting->youtube_last_prepare_status ?? null;
-    $ytStatusUi = match ($ytStatus) {
+    $ytStatusMap = [
         'ready' => ['label' => 'Cookie Valid', 'class' => 'success'],
         'already_live' => ['label' => 'Already Live', 'class' => 'success'],
         'not_live' => ['label' => 'Not Live', 'class' => 'warning'],
         'login_required' => ['label' => 'Login Required', 'class' => 'danger'],
         'missing_cookies' => ['label' => 'Cookie Missing', 'class' => 'danger'],
-        default => ['label' => 'Belum Dicek', 'class' => 'neutral'],
-    };
+    ];
+    $ytStatusUi = $ytStatusMap[$ytStatus] ?? ['label' => 'Belum Dicek', 'class' => 'neutral'];
 @endphp
 
 {{-- Page Header --}}

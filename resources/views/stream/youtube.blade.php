@@ -229,14 +229,14 @@
 @section('content')
 @php
     $status = $setting->youtube_last_prepare_status ?? null;
-    $statusUi = match ($status) {
+    $statusMap = [
         'ready' => ['label' => 'Cookie Valid', 'class' => 'success'],
         'already_live' => ['label' => 'Already Live', 'class' => 'success'],
         'not_live' => ['label' => 'Not Live', 'class' => 'warning'],
         'login_required' => ['label' => 'Login Required', 'class' => 'danger'],
         'missing_cookies' => ['label' => 'Cookie Missing', 'class' => 'danger'],
-        default => ['label' => 'Belum Dicek', 'class' => 'neutral'],
-    };
+    ];
+    $statusUi = $statusMap[$status] ?? ['label' => 'Belum Dicek', 'class' => 'neutral'];
 @endphp
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-3">
     <div>
