@@ -122,6 +122,13 @@ async function clickByText(page, texts) {
     }, texts);
 }
 
+async function isUnsupportedBrowserPage(page) {
+    return page.evaluate(() => {
+        const text = (document.body?.innerText || '').toLowerCase();
+        return text.includes('unsupported browser') || text.includes('skip to youtube studio');
+    });
+}
+
 async function run() {
     const payload = decodePayload();
     fs.mkdirSync(payload.sessionDir, { recursive: true });
@@ -153,6 +160,7 @@ async function run() {
     try {
         const page = await browser.newPage();
         await page.setViewport({ width: 1440, height: 900 });
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36');
 
         if (payload.cookiePath && fs.existsSync(payload.cookiePath)) {
             const cookies = loadCookies(payload.cookiePath);
@@ -167,6 +175,13 @@ async function run() {
 
         await page.goto(dashboardUrl, { waitUntil: 'networkidle2', timeout: 90000 });
         await sleep(5000);
+
+        if (await isUnsupportedBrowserPage(page)) {
+            const skipButton = await clickByText(page, ['Skip to YouTube Studio']);
+            if (skipButton.clicked) {
+                await sleep(5000);
+            }
+        }
 
         result.currentUrl = page.url();
 
