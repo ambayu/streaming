@@ -164,8 +164,8 @@ while true; do
   for f in "\${VIDEOS[@]}"; do
     echo "\$(date): Streaming \$f" >> "\$LOGFILE"
 
-    # Encode ke H.264 + AAC (wajib untuk YouTube Live)
-    ffmpeg -re -i "\$f" -c:v libx264 -preset veryfast -tune zerolatency -maxrate 2500k -bufsize 5000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 -loglevel warning -flvflags no_duration_filesize -f flv "rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY" >>"\$LOGFILE" 2>&1
+    # Stream Copy (menggunakan codec asli video/audio untuk menghemat CPU VPS)
+    ffmpeg -re -i "\$f" -c:v copy -c:a copy -loglevel warning -flvflags no_duration_filesize -f flv "rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY" >>"\$LOGFILE" 2>&1
 
     EXIT_CODE=\$?
     if [ \$EXIT_CODE -ne 0 ]; then
