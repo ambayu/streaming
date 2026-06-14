@@ -164,21 +164,20 @@ while true; do
   for f in "\${VIDEOS[@]}"; do
     echo "\$(date): Streaming \$f" >> "\$LOGFILE"
 
-    # run with nice/ionice, single thread, minimal logging
-    nice -n 19 ionice -c2 -n7 \
-      ffmpeg -re -i "\$f" -threads 1 \
-             -c:v copy -c:a copy -loglevel error \
-             -flvflags no_duration_filesize -f flv "rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY" \
-      >>"\$LOGFILE" 2>&1
+    # Encode ke H.264 + AAC (wajib untuk YouTube Live)
+    ffmpeg -re -i "\$f" -c:v libx264 -preset veryfast -tune zerolatency -maxrate 2500k -bufsize 5000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 -loglevel warning -flvflags no_duration_filesize -f flv "rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY" >>"\$LOGFILE" 2>&1
 
-    if [ \$? -ne 0 ]; then
-      echo "\$(date): ERROR streaming \$f" >> "\$LOGFILE"
+    EXIT_CODE=\$?
+    if [ \$EXIT_CODE -ne 0 ]; then
+      echo "\$(date): ERROR streaming \$f (exit code: \$EXIT_CODE)" >> "\$LOGFILE"
+      echo "\$(date): Menunggu 5 detik sebelum video berikutnya..." >> "\$LOGFILE"
+      sleep 5
     else
       echo "\$(date): Finished \$f" >> "\$LOGFILE"
     fi
   done
-  echo "\$(date): Menunggu 10 detik sebelum loop berikutnya..." >> "\$LOGFILE"
-  sleep 10
+  echo "\$(date): Semua video selesai. Mengulang playlist dalam 5 detik..." >> "\$LOGFILE"
+  sleep 5
 done
 EOD;
 
@@ -212,9 +211,9 @@ EOD;
                 $deleteProcess->run();
             }
 
-            // 5. Coba jalankan streaming PM2 dengan mekanisme retry 5x
+            // 5. Coba jalankan streaming PM2 dengan mekanisme retry 3x
             $started = false;
-            $maxAttempts = 5;
+            $maxAttempts = 3;
 
             for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
                 $this->logMessage("Menjalankan stream PM2 untuk User $userId (Percobaan $attempt dari $maxAttempts)...");
