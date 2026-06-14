@@ -844,97 +844,103 @@
         </div>
         @endif
 
-        {{-- PM2 Status --}}
-        <div class="stream-card">
-            <div class="card-head">
-                <h3><i class="fas fa-server"></i> Status PM2</h3>
-                <button class="collapse-btn" id="pm2Btn" onclick="toggleCollapse('pm2Body', this)">
-                    <i class="fas fa-chevron-down"></i>
-                </button>
-            </div>
-            <div id="pm2Body" style="display:none;">
-                <div class="card-body-inner">
-                    @if (!empty($pm2Processes))
-                        <div class="terminal-box">
-                            <div class="terminal-top">
-                                <div class="dots">
-                                    <span class="red"></span>
-                                    <span class="amber"></span>
-                                    <span class="green"></span>
+        <div class="row g-4">
+            <div class="col-md-6">
+                {{-- PM2 Status --}}
+                <div class="stream-card h-100">
+                    <div class="card-head">
+                        <h3><i class="fas fa-server"></i> Status PM2</h3>
+                        <button class="collapse-btn" id="pm2Btn" onclick="toggleCollapse('pm2Body', this)">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                    <div id="pm2Body" style="display:none;">
+                        <div class="card-body-inner">
+                            @if (!empty($pm2Processes))
+                                <div class="terminal-box">
+                                    <div class="terminal-top">
+                                        <div class="dots">
+                                            <span class="red"></span>
+                                            <span class="amber"></span>
+                                            <span class="green"></span>
+                                        </div>
+                                        <span class="badge-live">LIVE</span>
+                                    </div>
+                                    <div class="pm2-table-wrap">
+                                        <table class="pm2-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Nama</th>
+                                                    <th>Status</th>
+                                                    <th>PID</th>
+                                                    <th>Uptime</th>
+                                                    <th>CPU</th>
+                                                    <th>Memory</th>
+                                                    <th>Restart</th>
+                                                    <th>Mode</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach ($pm2Processes as $process)
+                                                    @php
+                                                        $statusClass = in_array($process['status'], ['online'], true)
+                                                            ? 'online'
+                                                            : (in_array($process['status'], ['stopped', 'errored'], true) ? 'stopped' : 'default');
+                                                    @endphp
+                                                    <tr>
+                                                        <td>{{ $process['name'] }}</td>
+                                                        <td>
+                                                            <span class="pm2-status-chip {{ $statusClass }}">
+                                                                {{ $process['status'] }}
+                                                            </span>
+                                                        </td>
+                                                        <td>{{ $process['pid'] }}</td>
+                                                        <td>{{ $process['uptime'] }}</td>
+                                                        <td>{{ $process['cpu'] }}</td>
+                                                        <td>{{ $process['memory'] }}</td>
+                                                        <td>{{ $process['restarts'] }}</td>
+                                                        <td>{{ $process['mode'] }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                                <span class="badge-live">LIVE</span>
-                            </div>
-                            <div class="pm2-table-wrap">
-                                <table class="pm2-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Nama</th>
-                                            <th>Status</th>
-                                            <th>PID</th>
-                                            <th>Uptime</th>
-                                            <th>CPU</th>
-                                            <th>Memory</th>
-                                            <th>Restart</th>
-                                            <th>Mode</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach ($pm2Processes as $process)
-                                            @php
-                                                $statusClass = in_array($process['status'], ['online'], true)
-                                                    ? 'online'
-                                                    : (in_array($process['status'], ['stopped', 'errored'], true) ? 'stopped' : 'default');
-                                            @endphp
-                                            <tr>
-                                                <td>{{ $process['name'] }}</td>
-                                                <td>
-                                                    <span class="pm2-status-chip {{ $statusClass }}">
-                                                        {{ $process['status'] }}
-                                                    </span>
-                                                </td>
-                                                <td>{{ $process['pid'] }}</td>
-                                                <td>{{ $process['uptime'] }}</td>
-                                                <td>{{ $process['cpu'] }}</td>
-                                                <td>{{ $process['memory'] }}</td>
-                                                <td>{{ $process['restarts'] }}</td>
-                                                <td>{{ $process['mode'] }}</td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
+                            @else
+                                <div class="empty-state" style="padding:20px;">
+                                    <div class="empty-icon" style="font-size:1.8rem;"><i class="fas fa-server"></i></div>
+                                    <p style="margin:0;">Tidak ada proses PM2 berjalan</p>
+                                </div>
+                            @endif
                         </div>
-                    @else
-                        <div class="empty-state" style="padding:20px;">
-                            <div class="empty-icon" style="font-size:1.8rem;"><i class="fas fa-server"></i></div>
-                            <p style="margin:0;">Tidak ada proses PM2 berjalan</p>
-                        </div>
-                    @endif
+                    </div>
                 </div>
             </div>
-        </div>
 
-        {{-- VPS Info --}}
-        <div class="stream-card">
-            <div class="card-head">
-                <h3><i class="fas fa-microchip"></i> Info VPS</h3>
-                <button class="collapse-btn" id="vpsBtn" onclick="toggleCollapse('vpsBody', this)">
-                    <i class="fas fa-chevron-down"></i>
-                </button>
-            </div>
-            <div id="vpsBody" style="display:none;">
-                <div class="card-body-inner">
-                    <div class="info-row">
-                        <span class="info-label"><i class="fas fa-tachometer-alt me-1"></i> Load</span>
-                        <span class="info-value">{{ $loadavg }}</span>
+            <div class="col-md-6">
+                {{-- VPS Info --}}
+                <div class="stream-card h-100">
+                    <div class="card-head">
+                        <h3><i class="fas fa-microchip"></i> Info VPS</h3>
+                        <button class="collapse-btn" id="vpsBtn" onclick="toggleCollapse('vpsBody', this)">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
                     </div>
-                    <div class="info-row">
-                        <span class="info-label"><i class="fas fa-memory me-1"></i> Memory</span>
-                        <span class="info-value">{{ $meminfo }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label"><i class="fas fa-hdd me-1"></i> Disk</span>
-                        <span class="info-value">{{ $diskinfo }}</span>
+                    <div id="vpsBody" style="display:none;">
+                        <div class="card-body-inner">
+                            <div class="info-row">
+                                <span class="info-label"><i class="fas fa-tachometer-alt me-1"></i> Load</span>
+                                <span class="info-value">{{ $loadavg }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label"><i class="fas fa-memory me-1"></i> Memory</span>
+                                <span class="info-value">{{ $meminfo }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label"><i class="fas fa-hdd me-1"></i> Disk</span>
+                                <span class="info-value">{{ $diskinfo }}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1097,40 +1103,40 @@
             </div>
         </div>
 
-        {{-- Error Log --}}
-        <div class="stream-card">
-            <div class="card-head">
-                <h3 style="color:#f87171;"><i class="fas fa-exclamation-triangle" style="color:#f87171;"></i> Log Error</h3>
-                <div class="d-flex align-items-center gap-2">
-                    <form action="{{ route('stream.clearErrors') }}" method="POST" style="margin:0;">
-                        @csrf
-                        <button type="submit" class="btn-icon-danger">
-                            <i class="fas fa-trash-alt"></i> Hapus
-                        </button>
-                    </form>
-                    <button class="collapse-btn" id="errBtn" onclick="toggleCollapse('errBody', this)">
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
-                </div>
-            </div>
-            <div id="errBody" style="display:none;">
-                <div class="card-body-inner">
-                    @if(!empty(trim($errorLog)))
-                        <pre class="error-log-pre">{{ $errorLog }}</pre>
-                    @else
-                        <div class="empty-state" style="padding:16px;">
-                            <div class="empty-icon" style="font-size:1.8rem;"><i class="fas fa-check-circle" style="color:var(--success)"></i></div>
-                            <p style="margin:0;color:var(--success);">Tidak ada error tercatat.</p>
-                        </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-
     </div>{{-- end right col --}}
 </div>
 
-{{-- ===== ROW 2: Streaming Log (Full Width) ===== --}}
+{{-- ===== ROW 2: Error Log (Full Width) ===== --}}
+<div class="stream-card" style="margin-top:4px;">
+    <div class="card-head">
+        <h3 style="color:#f87171;"><i class="fas fa-exclamation-triangle" style="color:#f87171;"></i> Log Error</h3>
+        <div class="d-flex align-items-center gap-2">
+            <form action="{{ route('stream.clearErrors') }}" method="POST" style="margin:0;">
+                @csrf
+                <button type="submit" class="btn-icon-danger">
+                    <i class="fas fa-trash-alt"></i> Hapus
+                </button>
+            </form>
+            <button class="collapse-btn" id="errBtn" onclick="toggleCollapse('errBody', this)">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+        </div>
+    </div>
+    <div id="errBody" style="display:none;">
+        <div class="card-body-inner">
+            @if(!empty(trim($errorLog)))
+                <pre class="error-log-pre">{{ $errorLog }}</pre>
+            @else
+                <div class="empty-state" style="padding:16px;">
+                    <div class="empty-icon" style="font-size:1.8rem;"><i class="fas fa-check-circle" style="color:var(--success)"></i></div>
+                    <p style="margin:0;color:var(--success);">Tidak ada error tercatat.</p>
+                </div>
+            @endif
+        </div>
+    </div>
+</div>
+
+{{-- ===== ROW 3: Streaming Log (Full Width) ===== --}}
 <div class="stream-card" style="margin-top:4px;">
     <div class="card-head">
         <h3><i class="fas fa-terminal"></i> Log Streaming</h3>
