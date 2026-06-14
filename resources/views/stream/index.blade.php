@@ -782,11 +782,11 @@
     </div>
 </div>
 
-{{-- ===== ROW 1: Left (Status + Playlist) | Right (Controls + YT Key + Error Log) ===== --}}
-<div class="row g-4">
+{{-- ===== ROW 1: Left (Status + YouTube + Monitoring) | Right (Controls + Error Log) ===== --}}
+<div class="row g-4 align-items-start">
 
     {{-- LEFT COLUMN --}}
-    <div class="col-lg-6 dashboard-column">
+    <div class="col-xl-7 col-lg-6 dashboard-column">
 
         {{-- Now Playing --}}
         @if ($isStreaming && !empty($playingLine))
@@ -940,10 +940,104 @@
             </div>
         </div>
 
+        {{-- YouTube Connection Status --}}
+        <div class="stream-card" id="youtube-config">
+            <div class="card-head">
+                <h3><i class="fab fa-youtube" style="color:#ff4444;"></i> Status Koneksi YouTube</h3>
+            </div>
+            <div class="card-body-inner">
+                <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:14px;">
+                    Konfigurasi YouTube sekarang dipindahkan ke menu terpisah agar halaman streaming tetap fokus ke operasional siaran.
+                </p>
+
+                <div class="yt-status-inline">
+                    <span class="badge-item {{ $ytStatusUi['class'] }}">
+                        <i class="fas fa-circle"></i> {{ $ytStatusUi['label'] }}
+                    </span>
+                    @if (($setting->youtube_last_prepare_status ?? null) === 'already_live')
+                        <span class="badge-item success">
+                            <i class="fas fa-broadcast-tower"></i> YouTube Masih Live
+                        </span>
+                    @elseif (($setting->youtube_last_prepare_status ?? null) === 'not_live')
+                        <span class="badge-item warning">
+                            <i class="fas fa-circle-pause"></i> Aman Untuk Start
+                        </span>
+                    @endif
+                </div>
+
+                <div style="margin-top:14px;padding:12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border-color);">
+                    <div class="info-row" style="padding-top:0;">
+                        <span class="info-label">Akun</span>
+                        <span class="info-value">{{ auth()->user()->email }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Google</span>
+                        <span class="info-value">{{ $setting->google_email ?? 'Belum diatur' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Channel</span>
+                        <span class="info-value">{{ $setting->youtube_channel_id ?? 'Otomatis / belum diatur' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Status</span>
+                        <span class="info-value">{{ $setting->youtube_last_prepare_status ?? 'Belum diuji' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Cookie</span>
+                        <span class="info-value">{{ !empty($setting->youtube_cookie_path ?? null) ? 'Tersimpan' : 'Belum ada' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Terhubung</span>
+                        <span class="info-value">{{ optional($setting->youtube_connected_at ?? null)->format('d M Y H:i') ?? 'Belum ada data' }}</span>
+                    </div>
+                    <div class="info-row" style="border-bottom:none;padding-bottom:0;">
+                        <span class="info-label">Pesan</span>
+                        <span class="info-value">{{ $setting->youtube_last_prepare_message ?? 'Belum ada hasil automasi.' }}</span>
+                    </div>
+                </div>
+
+                <a href="{{ route('stream.youtube') }}" class="btn-stream outline" style="margin-top:14px;">
+                    <i class="fas fa-cog"></i> Buka Pengaturan YouTube
+                </a>
+            </div>
+        </div>
+
+        {{-- YouTube Stream Key --}}
+        <div class="stream-card">
+            <div class="card-head">
+                <h3><i class="fab fa-youtube" style="color:#ff4444;"></i> YouTube Stream Key</h3>
+            </div>
+            <div class="card-body-inner">
+                <form action="{{ route('stream.storeKey') }}" method="POST">
+                    @csrf
+                    <label class="form-label-dark" for="youtube_key">Kunci Streaming YouTube</label>
+                    <div class="input-group-dark">
+                        <span class="input-prefix"><i class="fas fa-key"></i></span>
+                        <input type="password"
+                               name="youtube_key"
+                               id="youtube_key"
+                               value="{{ $setting->youtube_key ?? '' }}"
+                               placeholder="Masukkan stream key..."
+                               autocomplete="off">
+                        <span class="input-suffix toggle-password-btn" onclick="toggleYTKey(this)">
+                            <i class="fas fa-eye" id="ytKeyIcon"></i>
+                        </span>
+                    </div>
+                    @error('youtube_key')
+                        <p style="font-size:0.78rem;color:#f87171;margin:6px 0 0 0;">{{ $message }}</p>
+                    @enderror
+                    <p class="form-hint">Kunci ini digunakan untuk mengirim siaran ke YouTube Live.</p>
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-save"></i> Simpan Kunci
+                    </button>
+                </form>
+            </div>
+        </div>
+
     </div>{{-- end left col --}}
 
     {{-- RIGHT COLUMN --}}
-    <div class="col-lg-6 dashboard-column">
+    <div class="col-xl-5 col-lg-6 dashboard-column">
 
         {{-- Kontrol Streaming --}}
         <div class="stream-card">
@@ -1000,108 +1094,6 @@
                 </p>
 
                 <a href="{{ route('playlists.index') }}" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;font-size:0.8rem;color:var(--accent);text-decoration:none;"><i class="fas fa-list-ul"></i> Kelola Playlist</a>
-            </div>
-        </div>
-
-        {{-- YouTube Connection Status --}}
-        <div class="stream-card" id="youtube-config">
-            <div class="card-head">
-                <h3><i class="fab fa-youtube" style="color:#ff4444;"></i> Status Koneksi YouTube</h3>
-            </div>
-            <div class="card-body-inner">
-                <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:14px;">
-                    Konfigurasi YouTube sekarang dipindahkan ke menu terpisah agar halaman streaming tetap fokus ke operasional siaran.
-                </p>
-
-                <div class="yt-status-inline">
-                    <span class="badge-item {{ $ytStatusUi['class'] }}">
-                        <i class="fas fa-circle"></i> {{ $ytStatusUi['label'] }}
-                    </span>
-                    @if (($setting->youtube_last_prepare_status ?? null) === 'already_live')
-                        <span class="badge-item success">
-                            <i class="fas fa-broadcast-tower"></i> YouTube Masih Live
-                        </span>
-                    @elseif (($setting->youtube_last_prepare_status ?? null) === 'not_live')
-                        <span class="badge-item warning">
-                            <i class="fas fa-circle-pause"></i> Aman Untuk Start
-                        </span>
-                    @endif
-                </div>
-
-                <div style="margin-top:14px;padding:12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border-color);">
-                    <div class="info-row" style="padding-top:0;">
-                        <span class="info-label">Akun</span>
-                        <span class="info-value">{{ auth()->user()->email }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Google</span>
-                        <span class="info-value">{{ $setting->google_email ?? 'Belum diatur' }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Channel</span>
-                        <span class="info-value">{{ $setting->youtube_channel_id ?? 'Otomatis / belum diatur' }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Status</span>
-                        <span class="info-value">
-                            {{ $setting->youtube_last_prepare_status ?? 'Belum diuji' }}
-                        </span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Cookie</span>
-                        <span class="info-value">
-                            {{ !empty($setting->youtube_cookie_path ?? null) ? 'Tersimpan' : 'Belum ada' }}
-                        </span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Terhubung</span>
-                        <span class="info-value">
-                            {{ optional($setting->youtube_connected_at ?? null)->format('d M Y H:i') ?? 'Belum ada data' }}
-                        </span>
-                    </div>
-                    <div class="info-row" style="border-bottom:none;padding-bottom:0;">
-                        <span class="info-label">Pesan</span>
-                        <span class="info-value">
-                            {{ $setting->youtube_last_prepare_message ?? 'Belum ada hasil automasi.' }}
-                        </span>
-                    </div>
-                </div>
-
-                <a href="{{ route('stream.youtube') }}" class="btn-stream outline" style="margin-top:14px;">
-                    <i class="fas fa-cog"></i> Buka Pengaturan YouTube
-                </a>
-            </div>
-        </div>
-
-        {{-- YouTube Stream Key --}}
-        <div class="stream-card">
-            <div class="card-head">
-                <h3><i class="fab fa-youtube" style="color:#ff4444;"></i> YouTube Stream Key</h3>
-            </div>
-            <div class="card-body-inner">
-                <form action="{{ route('stream.storeKey') }}" method="POST">
-                    @csrf
-                    <label class="form-label-dark" for="youtube_key">Kunci Streaming YouTube</label>
-                    <div class="input-group-dark">
-                        <span class="input-prefix"><i class="fas fa-key"></i></span>
-                        <input type="password"
-                               name="youtube_key"
-                               id="youtube_key"
-                               value="{{ $setting->youtube_key ?? '' }}"
-                               placeholder="Masukkan stream key..."
-                               autocomplete="off">
-                        <span class="input-suffix toggle-password-btn" onclick="toggleYTKey(this)">
-                            <i class="fas fa-eye" id="ytKeyIcon"></i>
-                        </span>
-                    </div>
-                    @error('youtube_key')
-                        <p style="font-size:0.78rem;color:#f87171;margin:6px 0 0 0;">{{ $message }}</p>
-                    @enderror
-                    <p class="form-hint">Kunci ini digunakan untuk mengirim siaran ke YouTube Live.</p>
-                    <button type="submit" class="btn-save">
-                        <i class="fas fa-save"></i> Simpan Kunci
-                    </button>
-                </form>
             </div>
         </div>
 
