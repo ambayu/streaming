@@ -196,6 +196,32 @@ sudo npm install pm2 -g
 - status stream tidak hanya bergantung pada database, tetapi juga pada proses `pm2` dan isi log file
 - dashboard streaming saat ini diasumsikan berjalan di server Linux, bukan Windows
 
+## Koneksi YouTube
+
+Untuk fitur persiapan `Go Live`, aplikasi memakai cookie login Google/YouTube yang diunggah per user.
+
+Langkah praktis:
+
+1. Login ke akun Google yang memiliki akses ke channel YouTube.
+2. Buka `youtube.com` atau `studio.youtube.com` di browser Anda.
+3. Export cookie memakai extension seperti Cookie-Editor atau EditThisCookie.
+4. Simpan hasil export sebagai file `.json`.
+5. Di halaman `Stream`, isi email Google dan `channel ID`.
+6. Upload file cookie tersebut di panel `Koneksi YouTube`.
+7. Klik `Coba Buka Go Live Sekarang`.
+
+Format cookie yang didukung:
+
+- array JSON berisi cookie
+- objek JSON dengan properti `cookies`
+- objek JSON dengan properti `data.cookies`
+
+Catatan:
+
+- cookie harus masih valid
+- jika Google meminta login ulang, cookie perlu diexport ulang
+- hasil screenshot terakhir automasi disimpan di folder session YouTube pada server untuk debugging
+
 ## Lokasi File Penting
 
 - `app/Http/Controllers/StreamController.php`

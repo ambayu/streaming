@@ -29,6 +29,73 @@ function decodePayload() {
     return JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
 }
 
+function normalizeCookie(cookie) {
+    if (!cookie || typeof cookie !== 'object') {
+        return null;
+    }
+
+    const normalized = {
+        name: cookie.name,
+        value: cookie.value,
+    };
+
+    if (cookie.domain) {
+        normalized.domain = cookie.domain;
+    }
+    if (cookie.path) {
+        normalized.path = cookie.path;
+    }
+    if (typeof cookie.expires === 'number') {
+        normalized.expires = cookie.expires;
+    } else if (cookie.expirationDate) {
+        normalized.expires = cookie.expirationDate;
+    }
+    if (typeof cookie.httpOnly === 'boolean') {
+        normalized.httpOnly = cookie.httpOnly;
+    }
+    if (typeof cookie.secure === 'boolean') {
+        normalized.secure = cookie.secure;
+    }
+    if (cookie.sameSite) {
+        const sameSite = String(cookie.sameSite).toLowerCase();
+        if (sameSite === 'strict') normalized.sameSite = 'Strict';
+        if (sameSite === 'lax') normalized.sameSite = 'Lax';
+        if (sameSite === 'no_restriction' || sameSite === 'none') normalized.sameSite = 'None';
+    }
+    if (cookie.url && !normalized.domain) {
+        normalized.url = cookie.url;
+    }
+
+    if (!normalized.name || typeof normalized.value === 'undefined') {
+        return null;
+    }
+
+    return normalized;
+}
+
+function loadCookies(cookiePath) {
+    const raw = fs.readFileSync(cookiePath, 'utf8').trim();
+    if (!raw) {
+        return [];
+    }
+
+    const parsed = JSON.parse(raw);
+
+    if (Array.isArray(parsed)) {
+        return parsed.map(normalizeCookie).filter(Boolean);
+    }
+
+    if (parsed && Array.isArray(parsed.cookies)) {
+        return parsed.cookies.map(normalizeCookie).filter(Boolean);
+    }
+
+    if (parsed && parsed.data && Array.isArray(parsed.data.cookies)) {
+        return parsed.data.cookies.map(normalizeCookie).filter(Boolean);
+    }
+
+    throw new Error('Format cookie tidak dikenali. Gunakan JSON array cookie atau objek dengan properti cookies.');
+}
+
 async function clickByText(page, texts) {
     return page.evaluate((targetTexts) => {
         const textMatches = (value, expected) => value && value.toLowerCase().includes(expected.toLowerCase());
@@ -84,8 +151,8 @@ async function run() {
         await page.setViewport({ width: 1440, height: 900 });
 
         if (payload.cookiePath && fs.existsSync(payload.cookiePath)) {
-            const cookies = JSON.parse(fs.readFileSync(payload.cookiePath, 'utf8'));
-            if (Array.isArray(cookies) && cookies.length > 0) {
+            const cookies = loadCookies(payload.cookiePath);
+            if (cookies.length > 0) {
                 await page.setCookie(...cookies);
             }
         }
