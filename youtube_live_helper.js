@@ -167,6 +167,88 @@ async function detectLiveStatus(page) {
     });
 }
 
+async function detectPublicLiveStatus(page) {
+    return page.evaluate(() => {
+        const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const bodyText = normalize(document.body?.innerText || '');
+        const badgeSelectors = [
+            'ytd-thumbnail-overlay-time-status-renderer',
+            'ytd-badge-supported-renderer',
+            'span',
+            'div',
+        ];
+
+        const visibleBadges = [];
+        badgeSelectors.forEach((selector) => {
+            document.querySelectorAll(selector).forEach((node) => {
+                const text = normalize(node.innerText || node.textContent || '');
+                if (!text || !text.includes('live')) {
+                    return;
+                }
+
+                const style = window.getComputedStyle(node);
+                if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {
+                    return;
+                }
+
+                visibleBadges.push(text);
+            });
+        });
+
+        const liveVideoLinks = Array.from(document.querySelectorAll('a[href*=\"/watch\"], a[href*=\"/live\"]'))
+            .map((node) => ({
+                text: normalize(node.innerText || node.textContent || ''),
+                aria: normalize(node.getAttribute('aria-label') || ''),
+                href: node.href || '',
+            }))
+            .filter((item) => item.text.includes('live') || item.aria.includes('live'));
+
+        return {
+            isLive: visibleBadges.length > 0 || liveVideoLinks.length > 0 || bodyText.includes(' watching'),
+            badges: visibleBadges.slice(0, 10),
+            links: liveVideoLinks.slice(0, 5),
+            pageTextSample: bodyText.slice(0, 3000),
+        };
+    });
+}
+
+async function checkPublicChannelLive(page, channelId) {
+    if (!channelId) {
+        return {
+            isLive: false,
+            checked: false,
+            source: 'public_channel',
+        };
+    }
+
+    const targets = [
+        `https://www.youtube.com/channel/${channelId}/streams`,
+        `https://www.youtube.com/channel/${channelId}/live`,
+    ];
+
+    for (const targetUrl of targets) {
+        await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 90000 });
+        await sleep(4000);
+
+        const detection = await detectPublicLiveStatus(page);
+        if (detection.isLive) {
+            return {
+                ...detection,
+                checked: true,
+                source: 'public_channel',
+                url: page.url(),
+            };
+        }
+    }
+
+    return {
+        isLive: false,
+        checked: true,
+        source: 'public_channel',
+        url: page.url(),
+    };
+}
+
 async function run() {
     const payload = decodePayload();
     fs.mkdirSync(payload.sessionDir, { recursive: true });
@@ -249,9 +331,22 @@ async function run() {
         result.is_live = liveStatus.isLive;
 
         if (payload.action === 'status') {
+            let finalLiveStatus = liveStatus;
+
+            if (!liveStatus.isLive) {
+                const fallbackChannelId = payload.channelId || detectedChannelId;
+                const publicStatus = await checkPublicChannelLive(page, fallbackChannelId);
+
+                if (publicStatus.isLive) {
+                    finalLiveStatus = publicStatus;
+                    result.currentUrl = publicStatus.url || page.url();
+                }
+            }
+
+            result.is_live = finalLiveStatus.isLive;
             result.success = true;
-            result.status = liveStatus.isLive ? 'already_live' : 'not_live';
-            result.message = liveStatus.isLive
+            result.status = finalLiveStatus.isLive ? 'already_live' : 'not_live';
+            result.message = finalLiveStatus.isLive
                 ? `YouTube masih live untuk ${payload.googleEmail || 'akun ini'}. Start streaming akan dilewati.`
                 : 'YouTube tidak terdeteksi sedang live. Aman untuk lanjut start streaming.';
             await page.screenshot({ path: payload.screenshotPath, fullPage: true });
