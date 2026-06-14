@@ -13,6 +13,7 @@ use App\Http\Controllers\PlaylistController;
 Route::middleware('auth')->group(function () {
     Route::resource('videos', VideoController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::get('stream', [StreamController::class, 'index'])->name('stream.index');
+    Route::get('youtube', [StreamController::class, 'youtube'])->name('stream.youtube');
     Route::post('stream/key', [StreamController::class, 'storeKey'])->name('stream.storeKey');
     Route::post('stream/youtube-connection', [StreamController::class, 'storeYoutubeConnection'])->name('stream.storeYoutubeConnection');
     Route::post('stream/youtube-cookies', [StreamController::class, 'storeYoutubeCookies'])->name('stream.storeYoutubeCookies');

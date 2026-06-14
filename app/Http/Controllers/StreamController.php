@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Arr;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class StreamController extends Controller
@@ -39,9 +40,12 @@ class StreamController extends Controller
 
         $isStreaming = $process->isSuccessful() && !empty(trim($process->getOutput()));
 
-        $pm2StatusProcess = new Process([$pm2Path, 'list'], null, $env, null, 60);
+        $pm2StatusProcess = new Process([$pm2Path, 'jlist'], null, $env, null, 60);
         $pm2StatusProcess->run();
-        $pm2Status = $pm2StatusProcess->isSuccessful() ? trim($pm2StatusProcess->getOutput()) : 'Tidak ada proses PM2 aktif';
+        $pm2Processes = [];
+        if ($pm2StatusProcess->isSuccessful()) {
+            $pm2Processes = $this->parsePm2Processes($pm2StatusProcess->getOutput());
+        }
 
         $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
         $streamLog = 'Log file tidak ditemukan. Periksa izin atau proses streaming.';
@@ -77,9 +81,78 @@ class StreamController extends Controller
 
         return view('stream.index', compact(
             'setting', 'videos', 'playlists', 'isStreaming',
-            'pm2Status', 'streamLog', 'errorLog', 'playingLine',
+            'pm2Processes', 'streamLog', 'errorLog', 'playingLine',
             'streamingVideos', 'loadavg', 'meminfo', 'diskinfo'
         ));
+    }
+
+    protected function parsePm2Processes(string $output): array
+    {
+        $decoded = json_decode($output, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        return collect($decoded)
+            ->map(function ($process) {
+                $pm2Env = Arr::get($process, 'pm2_env', []);
+
+                return [
+                    'name' => $process['name'] ?? '-',
+                    'status' => $pm2Env['status'] ?? '-',
+                    'pid' => $process['pid'] ?? '-',
+                    'uptime' => $this->formatPm2Uptime($pm2Env['pm_uptime'] ?? null),
+                    'cpu' => isset($process['monit']['cpu']) ? $process['monit']['cpu'] . '%' : '-',
+                    'memory' => isset($process['monit']['memory']) ? $this->formatBytes((int) $process['monit']['memory']) : '-',
+                    'restarts' => $pm2Env['restart_time'] ?? 0,
+                    'mode' => $pm2Env['exec_mode'] ?? '-',
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function formatPm2Uptime($pmUptime): string
+    {
+        if (empty($pmUptime)) {
+            return '-';
+        }
+
+        $seconds = max(0, (int) floor((round(microtime(true) * 1000) - (int) $pmUptime) / 1000));
+
+        if ($seconds < 60) {
+            return $seconds . 's';
+        }
+
+        if ($seconds < 3600) {
+            return floor($seconds / 60) . 'm';
+        }
+
+        if ($seconds < 86400) {
+            return floor($seconds / 3600) . 'h';
+        }
+
+        return floor($seconds / 86400) . 'd';
+    }
+
+    protected function formatBytes(int $bytes): string
+    {
+        if ($bytes <= 0) {
+            return '0 B';
+        }
+
+        $units = ['B', 'KB', 'MB', 'GB'];
+        $power = (int) floor(log($bytes, 1024));
+        $power = min($power, count($units) - 1);
+
+        return round($bytes / (1024 ** $power), $power === 0 ? 0 : 1) . ' ' . $units[$power];
+    }
+
+    public function youtube()
+    {
+        $setting = auth()->user()->streamSettings;
+
+        return view('stream.youtube', compact('setting'));
     }
 
     public function clearErrors()

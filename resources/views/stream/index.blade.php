@@ -344,6 +344,70 @@
         overflow-y: auto;
     }
 
+    .pm2-table-wrap {
+        overflow-x: auto;
+    }
+
+    .pm2-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+    }
+
+    .pm2-table th,
+    .pm2-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        white-space: nowrap;
+    }
+
+    .pm2-table th {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        font-weight: 600;
+    }
+
+    .pm2-table td {
+        color: var(--text-secondary);
+    }
+
+    .pm2-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .pm2-status-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+
+    .pm2-status-chip.online {
+        background: rgba(34,197,94,0.14);
+        color: #4ade80;
+        border: 1px solid rgba(34,197,94,0.28);
+    }
+
+    .pm2-status-chip.stopped,
+    .pm2-status-chip.errored {
+        background: rgba(239,68,68,0.12);
+        color: #f87171;
+        border: 1px solid rgba(239,68,68,0.24);
+    }
+
+    .pm2-status-chip.default {
+        background: rgba(148,163,184,0.12);
+        color: var(--text-secondary);
+        border: 1px solid rgba(148,163,184,0.22);
+    }
+
     /* ── Now Playing ── */
     .now-playing-bar {
         display: flex;
@@ -628,35 +692,6 @@
 
     .btn-icon-danger:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); }
 
-    .account-summary {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 10px;
-        margin-bottom: 16px;
-    }
-
-    .account-pill {
-        padding: 10px 12px;
-        border-radius: 10px;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid var(--border-color);
-    }
-
-    .account-pill .label {
-        display: block;
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.6px;
-        color: var(--text-muted);
-        margin-bottom: 4px;
-    }
-
-    .account-pill .value {
-        font-size: 0.82rem;
-        color: var(--text-primary);
-        word-break: break-word;
-    }
-
     @media (max-width: 767px) {
         .video-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
     }
@@ -752,7 +787,7 @@
             </div>
             <div id="pm2Body" style="display:none;">
                 <div class="card-body-inner">
-                    @if (!empty($pm2Status))
+                    @if (!empty($pm2Processes))
                         <div class="terminal-box">
                             <div class="terminal-top">
                                 <div class="dots">
@@ -762,7 +797,45 @@
                                 </div>
                                 <span class="badge-live">LIVE</span>
                             </div>
-                            <pre>{{ $pm2Status }}</pre>
+                            <div class="pm2-table-wrap">
+                                <table class="pm2-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nama</th>
+                                            <th>Status</th>
+                                            <th>PID</th>
+                                            <th>Uptime</th>
+                                            <th>CPU</th>
+                                            <th>Memory</th>
+                                            <th>Restart</th>
+                                            <th>Mode</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($pm2Processes as $process)
+                                            @php
+                                                $statusClass = in_array($process['status'], ['online'], true)
+                                                    ? 'online'
+                                                    : (in_array($process['status'], ['stopped', 'errored'], true) ? 'stopped' : 'default');
+                                            @endphp
+                                            <tr>
+                                                <td>{{ $process['name'] }}</td>
+                                                <td>
+                                                    <span class="pm2-status-chip {{ $statusClass }}">
+                                                        {{ $process['status'] }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ $process['pid'] }}</td>
+                                                <td>{{ $process['uptime'] }}</td>
+                                                <td>{{ $process['cpu'] }}</td>
+                                                <td>{{ $process['memory'] }}</td>
+                                                <td>{{ $process['restarts'] }}</td>
+                                                <td>{{ $process['mode'] }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     @else
                         <div class="empty-state" style="padding:20px;">
@@ -863,96 +936,30 @@
             </div>
         </div>
 
-        {{-- YouTube Connection --}}
+        {{-- YouTube Connection Status --}}
         <div class="stream-card" id="youtube-config">
             <div class="card-head">
-                <h3><i class="fab fa-google" style="color:#60a5fa;"></i> Koneksi YouTube Per Akun</h3>
+                <h3><i class="fab fa-youtube" style="color:#ff4444;"></i> Status Koneksi YouTube</h3>
             </div>
             <div class="card-body-inner">
                 <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:14px;">
-                    Konfigurasi ini tersimpan khusus untuk akun website yang sedang login:
-                    <strong style="color:var(--text-primary);">{{ auth()->user()->email }}</strong>
+                    Konfigurasi YouTube sekarang dipindahkan ke menu terpisah agar halaman streaming tetap fokus ke operasional siaran.
                 </p>
-
-                <div class="account-summary">
-                    <div class="account-pill">
-                        <span class="label">Akun Website</span>
-                        <span class="value">{{ auth()->user()->name }}</span>
-                    </div>
-                    <div class="account-pill">
-                        <span class="label">Email Login</span>
-                        <span class="value">{{ auth()->user()->email }}</span>
-                    </div>
-                    <div class="account-pill">
-                        <span class="label">Email Google</span>
-                        <span class="value">{{ $setting->google_email ?? 'Belum diatur' }}</span>
-                    </div>
-                    <div class="account-pill">
-                        <span class="label">Channel ID</span>
-                        <span class="value">{{ $setting->youtube_channel_id ?? 'Otomatis / belum diatur' }}</span>
-                    </div>
-                </div>
-
-                <form action="{{ route('stream.storeYoutubeConnection') }}" method="POST">
-                    @csrf
-                    <label class="form-label-dark" for="google_email">Email Google</label>
-                    <input type="email"
-                           name="google_email"
-                           id="google_email"
-                           class="input-dark"
-                           value="{{ old('google_email', $setting->google_email ?? '') }}"
-                           placeholder="nama@gmail.com">
-                    @error('google_email')
-                        <p style="font-size:0.78rem;color:#f87171;margin:6px 0 0 0;">{{ $message }}</p>
-                    @enderror
-
-                    <label class="form-label-dark" for="youtube_channel_id" style="margin-top:14px;">Channel ID <span style="color:var(--text-muted);font-weight:400">(opsional tapi disarankan)</span></label>
-                    <input type="text"
-                           name="youtube_channel_id"
-                           id="youtube_channel_id"
-                           class="input-dark"
-                           value="{{ old('youtube_channel_id', $setting->youtube_channel_id ?? '') }}"
-                           placeholder="UCxxxxxxxxxxxxxxxxxxxxxx">
-                    @error('youtube_channel_id')
-                        <p style="font-size:0.78rem;color:#f87171;margin:6px 0 0 0;">{{ $message }}</p>
-                    @enderror
-
-                    <p class="form-hint">Isi email Google channel YouTube yang akan dipakai oleh akun website ini. Channel ID membantu bot membuka halaman live yang lebih tepat.</p>
-
-                    <button type="submit" class="btn-save">
-                        <i class="fas fa-link"></i> Simpan Koneksi
-                    </button>
-                </form>
-
-                <div style="height:1px;background:var(--border-color);margin:16px 0;"></div>
-
-                <form action="{{ route('stream.storeYoutubeCookies') }}" method="POST" enctype="multipart/form-data">
-                    @csrf
-                    <label class="form-label-dark" for="youtube_cookies">Upload Cookie YouTube (.json)</label>
-                    <input type="file"
-                           name="youtube_cookies"
-                           id="youtube_cookies"
-                           class="input-dark"
-                           accept=".json,application/json,text/plain">
-                    @error('youtube_cookies')
-                        <p style="font-size:0.78rem;color:#f87171;margin:6px 0 0 0;">{{ $message }}</p>
-                    @enderror
-                    <p class="form-hint">Unggah cookie login Google/YouTube yang masih valid untuk akun ini. Automasi `Go Live` akan memakai file ini sebelum stream dimulai.</p>
-
-                    <button type="submit" class="btn-save">
-                        <i class="fas fa-cookie-bite"></i> Upload Cookie
-                    </button>
-                </form>
-
-                <form action="{{ route('stream.prepareYoutube') }}" method="POST" style="margin-top:12px;">
-                    @csrf
-                    <button type="submit" class="btn-stream outline">
-                        <i class="fab fa-youtube"></i> Coba Buka Go Live Sekarang
-                    </button>
-                </form>
 
                 <div style="margin-top:14px;padding:12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border-color);">
                     <div class="info-row" style="padding-top:0;">
+                        <span class="info-label">Akun</span>
+                        <span class="info-value">{{ auth()->user()->email }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Google</span>
+                        <span class="info-value">{{ $setting->google_email ?? 'Belum diatur' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Channel</span>
+                        <span class="info-value">{{ $setting->youtube_channel_id ?? 'Otomatis / belum diatur' }}</span>
+                    </div>
+                    <div class="info-row">
                         <span class="info-label">Status</span>
                         <span class="info-value">
                             {{ $setting->youtube_last_prepare_status ?? 'Belum diuji' }}
@@ -977,6 +984,10 @@
                         </span>
                     </div>
                 </div>
+
+                <a href="{{ route('stream.youtube') }}" class="btn-stream outline" style="margin-top:14px;">
+                    <i class="fas fa-cog"></i> Buka Pengaturan YouTube
+                </a>
             </div>
         </div>
 
