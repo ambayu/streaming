@@ -114,11 +114,37 @@
     .dashboard-column {
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 16px;
     }
 
     .dashboard-column .stream-card {
         margin-bottom: 0;
+    }
+
+    .stream-dashboard-layout {
+        --bs-gutter-x: 20px;
+        --bs-gutter-y: 20px;
+    }
+
+    .monitoring-row {
+        --bs-gutter-x: 16px;
+        --bs-gutter-y: 16px;
+    }
+
+    .monitoring-row > div {
+        display: flex;
+    }
+
+    .monitoring-row .stream-card {
+        width: 100%;
+    }
+
+    @media (min-width: 992px) {
+        .stream-control-column {
+            position: sticky;
+            top: 20px;
+            align-self: flex-start;
+        }
     }
 
     /* ── Collapsible toggle ── */
@@ -748,7 +774,23 @@
 
     .btn-icon-danger:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); }
 
+    @media (max-width: 991px) {
+        .stream-control-column {
+            position: static;
+        }
+    }
+
     @media (max-width: 767px) {
+        .stream-card .card-head,
+        .stream-card .card-body-inner {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+
+        .dashboard-column {
+            gap: 14px;
+        }
+
         .video-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
     }
 </style>
@@ -782,11 +824,11 @@
     </div>
 </div>
 
-{{-- ===== ROW 1: Left (Status + YouTube + Monitoring) | Right (Controls + Error Log) ===== --}}
-<div class="row g-4 align-items-start">
+{{-- ===== MAIN LAYOUT: independent content column + sticky controls ===== --}}
+<div class="row align-items-start stream-dashboard-layout">
 
     {{-- LEFT COLUMN --}}
-    <div class="col-xl-7 col-lg-6 dashboard-column">
+    <div class="col-xl-8 col-lg-7 order-2 order-lg-1 dashboard-column">
 
         {{-- Now Playing --}}
         @if ($isStreaming && !empty($playingLine))
@@ -844,7 +886,7 @@
         </div>
         @endif
 
-        <div class="row g-4">
+        <div class="row monitoring-row">
             <div class="col-md-6">
                 {{-- PM2 Status --}}
                 <div class="stream-card h-100">
@@ -1040,10 +1082,72 @@
             </div>
         </div>
 
+        {{-- Error Log --}}
+        <div class="stream-card">
+            <div class="card-head">
+                <h3 style="color:#f87171;"><i class="fas fa-exclamation-triangle" style="color:#f87171;"></i> Log Error</h3>
+                <div class="d-flex align-items-center gap-2">
+                    <form action="{{ route('stream.clearErrors') }}" method="POST" style="margin:0;">
+                        @csrf
+                        <button type="submit" class="btn-icon-danger">
+                            <i class="fas fa-trash-alt"></i> Hapus
+                        </button>
+                    </form>
+                    <button class="collapse-btn" id="errBtn" onclick="toggleCollapse('errBody', this)">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="errBody" style="display:none;">
+                <div class="card-body-inner">
+                    @if(!empty(trim($errorLog)))
+                        <pre class="error-log-pre">{{ $errorLog }}</pre>
+                    @else
+                        <div class="empty-state" style="padding:16px;">
+                            <div class="empty-icon" style="font-size:1.8rem;"><i class="fas fa-check-circle" style="color:var(--success)"></i></div>
+                            <p style="margin:0;color:var(--success);">Tidak ada error tercatat.</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        {{-- Streaming Log --}}
+        <div class="stream-card">
+            <div class="card-head">
+                <h3><i class="fas fa-terminal"></i> Log Streaming</h3>
+                <button class="collapse-btn" id="logBtn" onclick="toggleCollapse('logBody', this)">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+            </div>
+            <div id="logBody" style="display:none;">
+                <div class="card-body-inner">
+                    @if ($isStreaming && !empty($streamLog))
+                        <div class="terminal-box">
+                            <div class="terminal-top">
+                                <div class="dots">
+                                    <span class="red"></span>
+                                    <span class="amber"></span>
+                                    <span class="green"></span>
+                                </div>
+                                <span class="badge-live">ACTIVE</span>
+                            </div>
+                            <pre>{{ $streamLog }}</pre>
+                        </div>
+                    @else
+                        <div class="empty-state" style="padding:20px;">
+                            <div class="empty-icon"><i class="fas fa-clipboard"></i></div>
+                            <p>Tidak ada log streaming yang tersedia saat ini.</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
     </div>{{-- end left col --}}
 
     {{-- RIGHT COLUMN --}}
-    <div class="col-xl-5 col-lg-6 dashboard-column">
+    <div class="col-xl-4 col-lg-5 order-1 order-lg-2 dashboard-column stream-control-column">
 
         {{-- Kontrol Streaming --}}
         <div class="stream-card">
@@ -1106,69 +1210,7 @@
     </div>{{-- end right col --}}
 </div>
 
-{{-- ===== ROW 2: Error Log (Full Width) ===== --}}
-<div class="stream-card" style="margin-top:4px;">
-    <div class="card-head">
-        <h3 style="color:#f87171;"><i class="fas fa-exclamation-triangle" style="color:#f87171;"></i> Log Error</h3>
-        <div class="d-flex align-items-center gap-2">
-            <form action="{{ route('stream.clearErrors') }}" method="POST" style="margin:0;">
-                @csrf
-                <button type="submit" class="btn-icon-danger">
-                    <i class="fas fa-trash-alt"></i> Hapus
-                </button>
-            </form>
-            <button class="collapse-btn" id="errBtn" onclick="toggleCollapse('errBody', this)">
-                <i class="fas fa-chevron-down"></i>
-            </button>
-        </div>
-    </div>
-    <div id="errBody" style="display:none;">
-        <div class="card-body-inner">
-            @if(!empty(trim($errorLog)))
-                <pre class="error-log-pre">{{ $errorLog }}</pre>
-            @else
-                <div class="empty-state" style="padding:16px;">
-                    <div class="empty-icon" style="font-size:1.8rem;"><i class="fas fa-check-circle" style="color:var(--success)"></i></div>
-                    <p style="margin:0;color:var(--success);">Tidak ada error tercatat.</p>
-                </div>
-            @endif
-        </div>
-    </div>
-</div>
-
-{{-- ===== ROW 3: Streaming Log (Full Width) ===== --}}
-<div class="stream-card" style="margin-top:4px;">
-    <div class="card-head">
-        <h3><i class="fas fa-terminal"></i> Log Streaming</h3>
-        <button class="collapse-btn" id="logBtn" onclick="toggleCollapse('logBody', this)">
-            <i class="fas fa-chevron-down"></i>
-        </button>
-    </div>
-    <div id="logBody" style="display:none;">
-        <div class="card-body-inner">
-            @if ($isStreaming && !empty($streamLog))
-                <div class="terminal-box">
-                    <div class="terminal-top">
-                        <div class="dots">
-                            <span class="red"></span>
-                            <span class="amber"></span>
-                            <span class="green"></span>
-                        </div>
-                        <span class="badge-live">ACTIVE</span>
-                    </div>
-                    <pre>{{ $streamLog }}</pre>
-                </div>
-            @else
-                <div class="empty-state" style="padding:20px;">
-                    <div class="empty-icon"><i class="fas fa-clipboard"></i></div>
-                    <p>Tidak ada log streaming yang tersedia saat ini.</p>
-                </div>
-            @endif
-        </div>
-    </div>
-</div>
-
-{{-- ===== ROW 3: Pilih Video (Collapsible, Full Width) ===== --}}
+{{-- ===== Pilih Video (Collapsible, Full Width) ===== --}}
 <div id="startForm" style="{{ $isStreaming ? 'display:none;' : '' }} margin-top: 4px;">
     <div class="stream-card">
         <div class="card-head">
