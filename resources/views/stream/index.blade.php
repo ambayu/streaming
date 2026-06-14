@@ -75,8 +75,6 @@
         border-radius: var(--card-radius);
         overflow: hidden;
         margin-bottom: 20px;
-        width: 100%;
-        box-sizing: border-box;
         transition: border-color 0.2s;
         display: flex;
         flex-direction: column;
@@ -116,54 +114,32 @@
     .dashboard-column {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 16px;
     }
 
     .dashboard-column .stream-card {
         margin-bottom: 0;
     }
 
-    .grid-utama {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
-        align-items: stretch;
-        width: 100%;
+    .stream-dashboard-layout {
+        --bs-gutter-x: 20px;
+        --bs-gutter-y: 20px;
     }
 
     .monitoring-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        margin: 0;
+        --bs-gutter-x: 16px;
+        --bs-gutter-y: 16px;
     }
 
     .monitoring-row > div {
         display: flex;
-        width: 100%;
-        padding: 0;
     }
 
     .monitoring-row .stream-card {
         width: 100%;
     }
 
-    .full-width-panel {
-        grid-column: 1 / -1;
-        margin-bottom: 0;
-    }
-
-    .stream-control-column {
-        grid-column: 2;
-        grid-row: 1;
-        height: 100%;
-    }
-
-    .stream-control-column > .stream-card {
-        height: 100%;
-    }
-
-    @media (min-width: 769px) {
+    @media (min-width: 992px) {
         .stream-control-column {
             position: sticky;
             top: 20px;
@@ -798,24 +774,9 @@
 
     .btn-icon-danger:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); }
 
-    @media (max-width: 768px) {
-        .grid-utama {
-            grid-template-columns: 1fr;
-        }
-
-        .full-width-panel {
-            grid-column: 1;
-        }
-
+    @media (max-width: 991px) {
         .stream-control-column {
             position: static;
-            grid-column: 1;
-            grid-row: 1;
-        }
-
-        .stream-status-column {
-            grid-column: 1;
-            grid-row: 2;
         }
     }
 
@@ -828,10 +789,6 @@
 
         .dashboard-column {
             gap: 14px;
-        }
-
-        .monitoring-row {
-            grid-template-columns: 1fr;
         }
 
         .video-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
@@ -867,11 +824,11 @@
     </div>
 </div>
 
-{{-- ===== MAIN LAYOUT ===== --}}
-<div class="grid-utama">
+{{-- ===== MAIN LAYOUT: independent content column + sticky controls ===== --}}
+<div class="row align-items-start stream-dashboard-layout">
 
     {{-- LEFT COLUMN --}}
-    <div class="dashboard-column stream-status-column">
+    <div class="col-xl-8 col-lg-7 order-2 order-lg-1 dashboard-column">
 
         {{-- Now Playing --}}
         @if ($isStreaming && !empty($playingLine))
@@ -1031,10 +988,8 @@
             </div>
         </div>
 
-    </div>{{-- end left col --}}
-
         {{-- YouTube Connection Status --}}
-        <div class="stream-card full-width-panel" id="youtube-config">
+        <div class="stream-card" id="youtube-config">
             <div class="card-head">
                 <h3><i class="fab fa-youtube" style="color:#ff4444;"></i> Status Koneksi YouTube</h3>
             </div>
@@ -1096,7 +1051,7 @@
         </div>
 
         {{-- YouTube Stream Key --}}
-        <div class="stream-card full-width-panel">
+        <div class="stream-card">
             <div class="card-head">
                 <h3><i class="fab fa-youtube" style="color:#ff4444;"></i> YouTube Stream Key</h3>
             </div>
@@ -1128,7 +1083,7 @@
         </div>
 
         {{-- Error Log --}}
-        <div class="stream-card full-width-panel">
+        <div class="stream-card">
             <div class="card-head">
                 <h3 style="color:#f87171;"><i class="fas fa-exclamation-triangle" style="color:#f87171;"></i> Log Error</h3>
                 <div class="d-flex align-items-center gap-2">
@@ -1158,7 +1113,7 @@
         </div>
 
         {{-- Streaming Log --}}
-        <div class="stream-card full-width-panel">
+        <div class="stream-card">
             <div class="card-head">
                 <h3><i class="fas fa-terminal"></i> Log Streaming</h3>
                 <button class="collapse-btn" id="logBtn" onclick="toggleCollapse('logBody', this)">
@@ -1189,8 +1144,10 @@
             </div>
         </div>
 
+    </div>{{-- end left col --}}
+
     {{-- RIGHT COLUMN --}}
-    <div class="dashboard-column stream-control-column">
+    <div class="col-xl-4 col-lg-5 order-1 order-lg-2 dashboard-column stream-control-column">
 
         {{-- Kontrol Streaming --}}
         <div class="stream-card">
