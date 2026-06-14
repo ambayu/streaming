@@ -33,6 +33,11 @@ function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function extractChannelId(url) {
+    const match = String(url || '').match(/\/channel\/([^/]+)/i);
+    return match ? match[1] : null;
+}
+
 function normalizeCookie(cookie) {
     if (!cookie || typeof cookie !== 'object') {
         return null;
@@ -184,6 +189,16 @@ async function run() {
         }
 
         result.currentUrl = page.url();
+
+        const detectedChannelId = extractChannelId(result.currentUrl);
+        if (!payload.channelId && detectedChannelId && !result.currentUrl.includes('/livestreaming/dashboard')) {
+            await page.goto(`https://studio.youtube.com/channel/${detectedChannelId}/livestreaming/dashboard`, {
+                waitUntil: 'networkidle2',
+                timeout: 90000,
+            });
+            await sleep(5000);
+            result.currentUrl = page.url();
+        }
 
         if (page.url().includes('accounts.google.com') || page.url().includes('ServiceLogin')) {
             result = {
