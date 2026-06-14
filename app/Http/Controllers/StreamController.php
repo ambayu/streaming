@@ -290,6 +290,12 @@ class StreamController extends Controller
         }
 
         if (!empty($setting->google_email)) {
+            $liveStatus = $youTubeAutomationService->checkLiveStatus($setting);
+            if (($liveStatus['success'] ?? false) && !empty($liveStatus['is_live'])) {
+                return redirect()->route('stream.index')
+                    ->with('success', $liveStatus['message'] ?? 'YouTube masih live. Start streaming dilewati.');
+            }
+
             $youtubeResult = $youTubeAutomationService->prepare($setting);
             if (!($youtubeResult['success'] ?? false)) {
                 return redirect()->route('stream.index')

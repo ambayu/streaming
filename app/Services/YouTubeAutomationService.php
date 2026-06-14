@@ -10,6 +10,16 @@ class YouTubeAutomationService
 {
     public function prepare(StreamSetting $setting): array
     {
+        return $this->runAction($setting, 'prepare');
+    }
+
+    public function checkLiveStatus(StreamSetting $setting): array
+    {
+        return $this->runAction($setting, 'status');
+    }
+
+    protected function runAction(StreamSetting $setting, string $action): array
+    {
         $cookiePath = $setting->youtube_cookie_path;
         if (empty($cookiePath) || !Storage::disk('local')->exists($cookiePath)) {
             return [
@@ -42,13 +52,13 @@ class YouTubeAutomationService
         }
 
         $payload = [
-            'action' => 'prepare',
+            'action' => $action,
             'userId' => (int) $setting->user_id,
             'googleEmail' => $setting->google_email,
             'channelId' => $setting->youtube_channel_id,
             'cookiePath' => Storage::disk('local')->path($cookiePath),
             'sessionDir' => storage_path('app/youtube-sessions/' . $setting->user_id),
-            'screenshotPath' => storage_path('app/youtube-sessions/' . $setting->user_id . '/last-prepare.png'),
+            'screenshotPath' => storage_path('app/youtube-sessions/' . $setting->user_id . '/last-' . $action . '.png'),
         ];
 
         if (!is_dir(dirname($payload['screenshotPath']))) {

@@ -134,6 +134,39 @@ async function isUnsupportedBrowserPage(page) {
     });
 }
 
+async function detectLiveStatus(page) {
+    return page.evaluate(() => {
+        const text = (document.body?.innerText || '').toLowerCase();
+
+        const includesAny = (needles) => needles.some((needle) => text.includes(needle));
+
+        const livePhrases = [
+            "you're live",
+            'you are live',
+            'anda sedang live',
+            'sedang live',
+            'end stream',
+            'akhiri streaming',
+            'excellent connection',
+            'stream health',
+        ];
+
+        const readyPhrases = [
+            'go live',
+            'mulai siaran',
+            'live control room',
+            'stream setup help',
+            'siarkan langsung',
+        ];
+
+        return {
+            isLive: includesAny(livePhrases),
+            isReadyScreen: includesAny(readyPhrases),
+            pageTextSample: text.slice(0, 5000),
+        };
+    });
+}
+
 async function run() {
     const payload = decodePayload();
     fs.mkdirSync(payload.sessionDir, { recursive: true });
@@ -212,6 +245,20 @@ async function run() {
         }
 
         result.session_valid = true;
+        const liveStatus = await detectLiveStatus(page);
+        result.is_live = liveStatus.isLive;
+
+        if (payload.action === 'status') {
+            result.success = true;
+            result.status = liveStatus.isLive ? 'already_live' : 'not_live';
+            result.message = liveStatus.isLive
+                ? `YouTube masih live untuk ${payload.googleEmail || 'akun ini'}. Start streaming akan dilewati.`
+                : 'YouTube tidak terdeteksi sedang live. Aman untuk lanjut start streaming.';
+            await page.screenshot({ path: payload.screenshotPath, fullPage: true });
+            result.currentUrl = page.url();
+            process.stdout.write(JSON.stringify(result));
+            return;
+        }
 
         if (!payload.channelId) {
             const goLiveLink = await clickByText(page, ['Go live', 'Mulai siaran', 'Live']);
