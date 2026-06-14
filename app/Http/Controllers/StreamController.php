@@ -259,6 +259,26 @@ class StreamController extends Controller
             ->with('success', $result['message'] ?? 'YouTube Live Control Room berhasil disiapkan.');
     }
 
+    public function refreshYoutubeStatus(YouTubeAutomationService $youTubeAutomationService)
+    {
+        $setting = auth()->user()->streamSettings;
+
+        if (!$setting || empty($setting->google_email)) {
+            return redirect()->route('stream.youtube')
+                ->with('error', 'Email Google belum disimpan. Lengkapi koneksi YouTube terlebih dahulu.');
+        }
+
+        $result = $youTubeAutomationService->checkLiveStatus($setting);
+
+        if (!($result['success'] ?? false)) {
+            return redirect()->route('stream.youtube')
+                ->with('error', $result['message'] ?? 'Gagal memeriksa status cookie YouTube.');
+        }
+
+        return redirect()->route('stream.youtube')
+            ->with('success', $result['message'] ?? 'Status cookie dan YouTube berhasil diperbarui.');
+    }
+
     public function startFromPlaylist(Request $request, YouTubeAutomationService $youTubeAutomationService)
     {
         $request->validate(['playlist_id' => 'required|exists:playlists,id']);

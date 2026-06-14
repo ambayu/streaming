@@ -1,0 +1,22 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+class AddYoutubeLastCheckedAtToStreamSettingsTable extends Migration
+{
+    public function up()
+    {
+        Schema::table('stream_settings', function (Blueprint $table) {
+            $table->timestamp('youtube_last_checked_at')->nullable()->after('youtube_connected_at');
+        });
+    }
+
+    public function down()
+    {
+        Schema::table('stream_settings', function (Blueprint $table) {
+            $table->dropColumn('youtube_last_checked_at');
+        });
+    }
+}

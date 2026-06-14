@@ -97,6 +97,7 @@ class YouTubeAutomationService
             'youtube_last_prepare_status' => $result['status'] ?? ($result['success'] ? 'ok' : 'error'),
             'youtube_last_prepare_message' => $result['message'] ?? null,
             'youtube_connected_at' => !empty($result['session_valid']) ? now() : $setting->youtube_connected_at,
+            'youtube_last_checked_at' => now(),
         ]);
 
         return $result;

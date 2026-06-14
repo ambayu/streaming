@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use App\Models\StreamSetting;
 use App\Models\Video;
 use App\Models\Playlist;
+use App\Services\YouTubeAutomationService;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 
@@ -72,6 +73,7 @@ class AutoRestartStream extends Command
     public function handle()
     {
         $this->logMessage("=== Memulai Proses Auto-Restart Streaming ===");
+        $youTubeAutomationService = app(YouTubeAutomationService::class);
 
         // Cari semua setting streaming yang memiliki riwayat playlist atau video terakhir (agar bisa dinyalakan kembali walau saat ini nonaktif)
         $activeSettings = StreamSetting::whereNotNull('last_playlist_id')
@@ -86,6 +88,23 @@ class AutoRestartStream extends Command
         foreach ($activeSettings as $setting) {
             $userId = $setting->user_id;
             $this->logMessage("Memproses restart untuk User ID: $userId");
+
+            if (!empty($setting->google_email)) {
+                $this->logMessage("Memeriksa status cookie/live YouTube untuk User $userId...");
+                $statusResult = $youTubeAutomationService->checkLiveStatus($setting);
+
+                if (!($statusResult['success'] ?? false)) {
+                    $this->logMessage("Pengecekan YouTube gagal untuk User $userId: " . ($statusResult['message'] ?? 'Unknown error'), 'warning');
+                    continue;
+                }
+
+                if (!empty($statusResult['is_live'])) {
+                    $this->logMessage("User $userId masih live di YouTube. Auto-restart dilewati.");
+                    continue;
+                }
+
+                $this->logMessage("YouTube tidak sedang live untuk User $userId. Lanjut proses start.");
+            }
 
             // 1. Dapatkan daftar video terakhir
             $videos = collect();

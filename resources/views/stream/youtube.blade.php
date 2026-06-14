@@ -293,6 +293,13 @@
                 <h3><i class="fas fa-vial"></i> Uji Automasi</h3>
             </div>
             <div class="card-body-inner">
+                <form action="{{ route('stream.refreshYoutubeStatus') }}" method="POST" style="margin-bottom:12px;">
+                    @csrf
+                    <button type="submit" class="btn-stream outline">
+                        <i class="fas fa-rotate-right"></i> Refresh Status Cookie & Live
+                    </button>
+                </form>
+
                 <form action="{{ route('stream.prepareYoutube') }}" method="POST">
                     @csrf
                     <button type="submit" class="btn-stream outline">
@@ -312,6 +319,10 @@
                     <div class="info-row">
                         <span class="info-label">Terhubung</span>
                         <span class="info-value">{{ optional($setting->youtube_connected_at ?? null)->format('d M Y H:i') ?? 'Belum ada data' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Dicek</span>
+                        <span class="info-value">{{ optional($setting->youtube_last_checked_at ?? null)->format('d M Y H:i') ?? 'Belum pernah dicek' }}</span>
                     </div>
                     <div class="info-row" style="border-bottom:none;padding-bottom:0;">
                         <span class="info-label">Pesan</span>

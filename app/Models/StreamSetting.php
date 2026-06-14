@@ -15,6 +15,7 @@ class StreamSetting extends Model
         'youtube_channel_id',
         'youtube_cookie_path',
         'youtube_connected_at',
+        'youtube_last_checked_at',
         'youtube_last_prepare_status',
         'youtube_last_prepare_message',
         'last_playlist_id',
@@ -26,6 +27,7 @@ class StreamSetting extends Model
         'last_video_ids' => 'array',
         'is_active' => 'boolean',
         'youtube_connected_at' => 'datetime',
+        'youtube_last_checked_at' => 'datetime',
     ];
 
     public function user()
