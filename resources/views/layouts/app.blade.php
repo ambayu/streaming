@@ -215,6 +215,10 @@
                    class="nav-link-item {{ request()->routeIs('stream.*') ? 'active' : '' }}">
                     <i class="fas fa-satellite-dish"></i> Stream
                 </a>
+                <a href="{{ route('stream.index') }}#youtube-config"
+                   class="nav-link-item {{ request()->routeIs('stream.*') ? 'active' : '' }}">
+                    <i class="fab fa-youtube"></i> YouTube
+                </a>
                 <div class="nav-divider"></div>
                 <form action="{{ route('logout') }}" method="POST" style="margin:0;">
                     @csrf

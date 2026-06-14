@@ -628,6 +628,35 @@
 
     .btn-icon-danger:hover { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.4); }
 
+    .account-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .account-pill {
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid var(--border-color);
+    }
+
+    .account-pill .label {
+        display: block;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+    }
+
+    .account-pill .value {
+        font-size: 0.82rem;
+        color: var(--text-primary);
+        word-break: break-word;
+    }
+
     @media (max-width: 767px) {
         .video-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
     }
@@ -835,11 +864,35 @@
         </div>
 
         {{-- YouTube Connection --}}
-        <div class="stream-card">
+        <div class="stream-card" id="youtube-config">
             <div class="card-head">
-                <h3><i class="fab fa-google" style="color:#60a5fa;"></i> Koneksi YouTube</h3>
+                <h3><i class="fab fa-google" style="color:#60a5fa;"></i> Koneksi YouTube Per Akun</h3>
             </div>
             <div class="card-body-inner">
+                <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:14px;">
+                    Konfigurasi ini tersimpan khusus untuk akun website yang sedang login:
+                    <strong style="color:var(--text-primary);">{{ auth()->user()->email }}</strong>
+                </p>
+
+                <div class="account-summary">
+                    <div class="account-pill">
+                        <span class="label">Akun Website</span>
+                        <span class="value">{{ auth()->user()->name }}</span>
+                    </div>
+                    <div class="account-pill">
+                        <span class="label">Email Login</span>
+                        <span class="value">{{ auth()->user()->email }}</span>
+                    </div>
+                    <div class="account-pill">
+                        <span class="label">Email Google</span>
+                        <span class="value">{{ $setting->google_email ?? 'Belum diatur' }}</span>
+                    </div>
+                    <div class="account-pill">
+                        <span class="label">Channel ID</span>
+                        <span class="value">{{ $setting->youtube_channel_id ?? 'Otomatis / belum diatur' }}</span>
+                    </div>
+                </div>
+
                 <form action="{{ route('stream.storeYoutubeConnection') }}" method="POST">
                     @csrf
                     <label class="form-label-dark" for="google_email">Email Google</label>
@@ -864,7 +917,7 @@
                         <p style="font-size:0.78rem;color:#f87171;margin:6px 0 0 0;">{{ $message }}</p>
                     @enderror
 
-                    <p class="form-hint">Isi email Google channel YouTube yang akan dipakai. Channel ID membantu bot membuka halaman live yang lebih tepat.</p>
+                    <p class="form-hint">Isi email Google channel YouTube yang akan dipakai oleh akun website ini. Channel ID membantu bot membuka halaman live yang lebih tepat.</p>
 
                     <button type="submit" class="btn-save">
                         <i class="fas fa-link"></i> Simpan Koneksi
@@ -884,7 +937,7 @@
                     @error('youtube_cookies')
                         <p style="font-size:0.78rem;color:#f87171;margin:6px 0 0 0;">{{ $message }}</p>
                     @enderror
-                    <p class="form-hint">Unggah cookie login Google/YouTube yang masih valid. Automasi `Go Live` akan memakai file ini sebelum stream dimulai.</p>
+                    <p class="form-hint">Unggah cookie login Google/YouTube yang masih valid untuk akun ini. Automasi `Go Live` akan memakai file ini sebelum stream dimulai.</p>
 
                     <button type="submit" class="btn-save">
                         <i class="fas fa-cookie-bite"></i> Upload Cookie
