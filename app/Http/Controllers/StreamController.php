@@ -211,12 +211,17 @@ mkdir -p "\$(dirname "\$LOGFILE")"
 chown www-data:www-data "\$(dirname "\$LOGFILE")"
 chmod 755 "\$(dirname "\$LOGFILE")"
 
+# Trap signals to clean up the running FFmpeg process
+trap 'kill \$FFMPEG_PID 2>/dev/null; exit 0' SIGINT SIGTERM EXIT
+
 while true; do
   for f in "\${VIDEOS[@]}"; do
     echo "\$(date): Streaming \$f" >> "\$LOGFILE"
 
     # Stream Copy (menggunakan codec asli video/audio untuk menghemat CPU VPS)
-    ffmpeg -re -i "\$f" -c:v copy -c:a copy -loglevel warning -flvflags no_duration_filesize -f flv "rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY" >>"\$LOGFILE" 2>&1
+    ffmpeg -re -i "\$f" -c:v copy -c:a copy -loglevel warning -flvflags no_duration_filesize -f flv "rtmps://a.rtmps.youtube.com/live2/\$YOUTUBE_KEY" >>"\$LOGFILE" 2>&1 &
+    FFMPEG_PID=\$!
+    wait \$FFMPEG_PID
 
     EXIT_CODE=\$?
     if [ \$EXIT_CODE -ne 0 ]; then
