@@ -201,22 +201,22 @@ EOD;
                 'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'
             ];
 
-            // Coba stop dan hapus proses PM2 yang sudah ada
-            $checkProcess = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 15);
-            $checkProcess->run();
-
-            if ($checkProcess->isSuccessful() && !empty(trim($checkProcess->getOutput()))) {
-                $this->logMessage("Menghentikan streaming lama untuk User $userId...");
-                $deleteProcess = new Process([$pm2Path, 'delete', $pm2Name], null, $env, null, 30);
-                $deleteProcess->run();
-            }
-
-            // 5. Coba jalankan streaming PM2 dengan mekanisme retry 3x
+            // 5. Jalankan streaming PM2 dengan melakukan restart sebanyak 3 kali secara berurutan
             $started = false;
             $maxAttempts = 3;
 
             for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-                $this->logMessage("Menjalankan stream PM2 untuk User $userId (Percobaan $attempt dari $maxAttempts)...");
+                $this->logMessage("Menjalankan restart PM2 untuk User $userId (Percobaan $attempt dari $maxAttempts)...");
+
+                // Coba stop dan hapus proses PM2 yang sedang berjalan untuk percobaan ini
+                $checkProcess = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 15);
+                $checkProcess->run();
+
+                if ($checkProcess->isSuccessful() && !empty(trim($checkProcess->getOutput()))) {
+                    $this->logMessage("Menghentikan streaming sebelum memulai kembali...");
+                    $deleteProcess = new Process([$pm2Path, 'delete', $pm2Name], null, $env, null, 30);
+                    $deleteProcess->run();
+                }
 
                 $startProcess = new Process(
                     [$pm2Path, 'start', $scriptPath, '--name', $pm2Name, '--log', $logFile, '--output', $logFile, '--error', $logFile, '--no-autorestart'],
@@ -234,13 +234,13 @@ EOD;
                 if ($verifyProcess->isSuccessful() && !empty(trim($verifyProcess->getOutput()))) {
                     $started = true;
                     $this->logMessage("Stream berhasil dijalankan untuk User $userId pada percobaan ke-$attempt. PID: " . trim($verifyProcess->getOutput()));
-                    break;
+                } else {
+                    $started = false;
+                    $this->logMessage("Gagal memulai PM2 untuk User $userId pada percobaan ke-$attempt. Error: " . $startProcess->getErrorOutput(), 'error');
                 }
 
-                $this->logMessage("Gagal memulai PM2 untuk User $userId pada percobaan ke-$attempt. Error: " . $startProcess->getErrorOutput(), 'error');
-
                 if ($attempt < $maxAttempts) {
-                    $this->logMessage("Menunggu 10 detik sebelum mencoba kembali...", 'warning');
+                    $this->logMessage("Menunggu 10 detik sebelum melakukan restart berikutnya...", 'warning');
                     sleep(10);
                 }
             }
