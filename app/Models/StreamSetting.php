@@ -11,6 +11,12 @@ class StreamSetting extends Model
     protected $fillable = [
         'user_id',
         'youtube_key',
+        'google_email',
+        'youtube_channel_id',
+        'youtube_cookie_path',
+        'youtube_connected_at',
+        'youtube_last_prepare_status',
+        'youtube_last_prepare_message',
         'last_playlist_id',
         'last_video_ids',
         'is_active'
@@ -19,6 +25,7 @@ class StreamSetting extends Model
     protected $casts = [
         'last_video_ids' => 'array',
         'is_active' => 'boolean',
+        'youtube_connected_at' => 'datetime',
     ];
 
     public function user()

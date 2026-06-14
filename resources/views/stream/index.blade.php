@@ -834,6 +834,99 @@
             </div>
         </div>
 
+        {{-- YouTube Connection --}}
+        <div class="stream-card">
+            <div class="card-head">
+                <h3><i class="fab fa-google" style="color:#60a5fa;"></i> Koneksi YouTube</h3>
+            </div>
+            <div class="card-body-inner">
+                <form action="{{ route('stream.storeYoutubeConnection') }}" method="POST">
+                    @csrf
+                    <label class="form-label-dark" for="google_email">Email Google</label>
+                    <input type="email"
+                           name="google_email"
+                           id="google_email"
+                           class="input-dark"
+                           value="{{ old('google_email', $setting->google_email ?? '') }}"
+                           placeholder="nama@gmail.com">
+                    @error('google_email')
+                        <p style="font-size:0.78rem;color:#f87171;margin:6px 0 0 0;">{{ $message }}</p>
+                    @enderror
+
+                    <label class="form-label-dark" for="youtube_channel_id" style="margin-top:14px;">Channel ID <span style="color:var(--text-muted);font-weight:400">(opsional tapi disarankan)</span></label>
+                    <input type="text"
+                           name="youtube_channel_id"
+                           id="youtube_channel_id"
+                           class="input-dark"
+                           value="{{ old('youtube_channel_id', $setting->youtube_channel_id ?? '') }}"
+                           placeholder="UCxxxxxxxxxxxxxxxxxxxxxx">
+                    @error('youtube_channel_id')
+                        <p style="font-size:0.78rem;color:#f87171;margin:6px 0 0 0;">{{ $message }}</p>
+                    @enderror
+
+                    <p class="form-hint">Isi email Google channel YouTube yang akan dipakai. Channel ID membantu bot membuka halaman live yang lebih tepat.</p>
+
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-link"></i> Simpan Koneksi
+                    </button>
+                </form>
+
+                <div style="height:1px;background:var(--border-color);margin:16px 0;"></div>
+
+                <form action="{{ route('stream.storeYoutubeCookies') }}" method="POST" enctype="multipart/form-data">
+                    @csrf
+                    <label class="form-label-dark" for="youtube_cookies">Upload Cookie YouTube (.json)</label>
+                    <input type="file"
+                           name="youtube_cookies"
+                           id="youtube_cookies"
+                           class="input-dark"
+                           accept=".json,application/json,text/plain">
+                    @error('youtube_cookies')
+                        <p style="font-size:0.78rem;color:#f87171;margin:6px 0 0 0;">{{ $message }}</p>
+                    @enderror
+                    <p class="form-hint">Unggah cookie login Google/YouTube yang masih valid. Automasi `Go Live` akan memakai file ini sebelum stream dimulai.</p>
+
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-cookie-bite"></i> Upload Cookie
+                    </button>
+                </form>
+
+                <form action="{{ route('stream.prepareYoutube') }}" method="POST" style="margin-top:12px;">
+                    @csrf
+                    <button type="submit" class="btn-stream outline">
+                        <i class="fab fa-youtube"></i> Coba Buka Go Live Sekarang
+                    </button>
+                </form>
+
+                <div style="margin-top:14px;padding:12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border-color);">
+                    <div class="info-row" style="padding-top:0;">
+                        <span class="info-label">Status</span>
+                        <span class="info-value">
+                            {{ $setting->youtube_last_prepare_status ?? 'Belum diuji' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Cookie</span>
+                        <span class="info-value">
+                            {{ !empty($setting->youtube_cookie_path ?? null) ? 'Tersimpan' : 'Belum ada' }}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Terhubung</span>
+                        <span class="info-value">
+                            {{ optional($setting->youtube_connected_at ?? null)->format('d M Y H:i') ?? 'Belum ada data' }}
+                        </span>
+                    </div>
+                    <div class="info-row" style="border-bottom:none;padding-bottom:0;">
+                        <span class="info-label">Pesan</span>
+                        <span class="info-value">
+                            {{ $setting->youtube_last_prepare_message ?? 'Belum ada hasil automasi.' }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {{-- YouTube Stream Key --}}
         <div class="stream-card">
             <div class="card-head">

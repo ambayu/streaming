@@ -6,6 +6,7 @@ use App\Models\Playlist;
 use App\Models\Video;
 use Illuminate\Http\Request;
 use App\Models\StreamSetting;
+use App\Services\YouTubeAutomationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
@@ -108,7 +109,84 @@ class StreamController extends Controller
         }
     }
 
-    public function startFromPlaylist(Request $request)
+    public function storeYoutubeConnection(Request $request)
+    {
+        $request->validate([
+            'google_email' => 'required|email|max:255',
+            'youtube_channel_id' => 'nullable|string|max:255',
+        ]);
+
+        try {
+            $setting = auth()->user()->streamSettings;
+            if (!$setting) {
+                return redirect()->route('stream.index')
+                    ->with('error', 'Simpan YouTube stream key terlebih dahulu sebelum mengatur koneksi akun Google.');
+            }
+
+            $setting->update([
+                'google_email' => $request->google_email,
+                'youtube_channel_id' => $request->youtube_channel_id,
+            ]);
+
+            return redirect()->route('stream.index')->with('success', 'Koneksi akun YouTube berhasil disimpan.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Gagal menyimpan koneksi YouTube: ' . $e->getMessage());
+        }
+    }
+
+    public function storeYoutubeCookies(Request $request)
+    {
+        $request->validate([
+            'youtube_cookies' => 'required|file|mimetypes:application/json,text/plain|max:2048',
+        ]);
+
+        try {
+            $setting = auth()->user()->streamSettings;
+            if (!$setting) {
+                return redirect()->route('stream.index')
+                    ->with('error', 'Simpan YouTube stream key terlebih dahulu sebelum mengunggah cookie YouTube.');
+            }
+
+            $path = $request->file('youtube_cookies')->storeAs(
+                'youtube-cookies',
+                'user_' . auth()->id() . '.json',
+                'local'
+            );
+
+            $setting->update([
+                'youtube_cookie_path' => $path,
+                'youtube_connected_at' => now(),
+                'youtube_last_prepare_status' => 'cookies_uploaded',
+                'youtube_last_prepare_message' => 'Cookie berhasil diunggah dan siap dipakai untuk automasi YouTube.',
+            ]);
+
+            return redirect()->route('stream.index')->with('success', 'Cookie YouTube berhasil diunggah.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Gagal mengunggah cookie YouTube: ' . $e->getMessage());
+        }
+    }
+
+    public function prepareYoutube(YouTubeAutomationService $youTubeAutomationService)
+    {
+        $setting = auth()->user()->streamSettings;
+
+        if (!$setting || empty($setting->google_email)) {
+            return redirect()->route('stream.index')
+                ->with('error', 'Email Google belum disimpan. Lengkapi koneksi YouTube terlebih dahulu.');
+        }
+
+        $result = $youTubeAutomationService->prepare($setting);
+
+        if (!($result['success'] ?? false)) {
+            return redirect()->route('stream.index')
+                ->with('error', $result['message'] ?? 'Gagal menyiapkan YouTube Go Live.');
+        }
+
+        return redirect()->route('stream.index')
+            ->with('success', $result['message'] ?? 'YouTube Live Control Room berhasil disiapkan.');
+    }
+
+    public function startFromPlaylist(Request $request, YouTubeAutomationService $youTubeAutomationService)
     {
         $request->validate(['playlist_id' => 'required|exists:playlists,id']);
 
@@ -123,10 +201,10 @@ class StreamController extends Controller
 
         // Inject video IDs ordered by pivot order, then delegate to start()
         $request->merge(['videos' => $playlist->videos->pluck('id')->toArray()]);
-        return $this->start($request);
+        return $this->start($request, $youTubeAutomationService);
     }
 
-    public function start(Request $request)
+    public function start(Request $request, YouTubeAutomationService $youTubeAutomationService)
     {
         $request->validate([
             'videos' => 'required|array|min:1',
@@ -136,6 +214,14 @@ class StreamController extends Controller
         $setting = auth()->user()->streamSettings;
         if (!$setting || empty($setting->youtube_key)) {
             return redirect()->route('stream.index')->with('error', 'YouTube streaming key belum diatur!');
+        }
+
+        if (!empty($setting->google_email)) {
+            $youtubeResult = $youTubeAutomationService->prepare($setting);
+            if (!($youtubeResult['success'] ?? false)) {
+                return redirect()->route('stream.index')
+                    ->with('error', 'Gagal membuka YouTube Go Live sebelum streaming: ' . ($youtubeResult['message'] ?? 'Unknown error'));
+            }
         }
 
         $ffmpegCheck = shell_exec('which ffmpeg 2>&1');

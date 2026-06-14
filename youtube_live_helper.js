@@ -1,0 +1,162 @@
+const fs = require('fs');
+const path = require('path');
+const puppeteer = require('puppeteer-core');
+
+function findBrowserExecutable() {
+    const candidates = [
+        process.env.PUPPETEER_EXECUTABLE_PATH,
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+    ].filter(Boolean);
+
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+
+    throw new Error('Browser executable tidak ditemukan. Install chromium/google-chrome di server atau set PUPPETEER_EXECUTABLE_PATH.');
+}
+
+function decodePayload() {
+    const encoded = process.argv[2];
+    if (!encoded) {
+        throw new Error('Payload automasi YouTube tidak diberikan.');
+    }
+
+    return JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
+}
+
+async function clickByText(page, texts) {
+    return page.evaluate((targetTexts) => {
+        const textMatches = (value, expected) => value && value.toLowerCase().includes(expected.toLowerCase());
+        const candidates = Array.from(document.querySelectorAll('button, a, div[role="button"], ytcp-button, tp-yt-paper-button'));
+
+        for (const candidate of candidates) {
+            const rawText = (candidate.innerText || candidate.textContent || '').trim();
+            if (!rawText) {
+                continue;
+            }
+
+            const matched = targetTexts.find((text) => textMatches(rawText, text));
+            if (matched) {
+                candidate.click();
+                return { clicked: true, label: rawText };
+            }
+        }
+
+        return { clicked: false, label: null };
+    }, texts);
+}
+
+async function run() {
+    const payload = decodePayload();
+    fs.mkdirSync(payload.sessionDir, { recursive: true });
+    fs.mkdirSync(path.dirname(payload.screenshotPath), { recursive: true });
+
+    const browser = await puppeteer.launch({
+        headless: 'new',
+        userDataDir: payload.sessionDir,
+        executablePath: findBrowserExecutable(),
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--window-size=1440,900',
+        ],
+    });
+
+    let result = {
+        success: false,
+        status: 'unknown',
+        message: 'Automasi YouTube belum dijalankan.',
+        currentUrl: null,
+        session_valid: false,
+        clicked_go_live: false,
+        screenshot: payload.screenshotPath,
+    };
+
+    try {
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1440, height: 900 });
+
+        if (payload.cookiePath && fs.existsSync(payload.cookiePath)) {
+            const cookies = JSON.parse(fs.readFileSync(payload.cookiePath, 'utf8'));
+            if (Array.isArray(cookies) && cookies.length > 0) {
+                await page.setCookie(...cookies);
+            }
+        }
+
+        const dashboardUrl = payload.channelId
+            ? `https://studio.youtube.com/channel/${payload.channelId}/livestreaming/dashboard`
+            : 'https://studio.youtube.com/';
+
+        await page.goto(dashboardUrl, { waitUntil: 'networkidle2', timeout: 90000 });
+        await page.waitForTimeout(5000);
+
+        result.currentUrl = page.url();
+
+        if (page.url().includes('accounts.google.com') || page.url().includes('ServiceLogin')) {
+            result = {
+                ...result,
+                status: 'login_required',
+                message: `Session Google untuk ${payload.googleEmail || 'akun ini'} belum aktif. Login manual atau unggah cookie yang valid terlebih dahulu.`,
+            };
+            await page.screenshot({ path: payload.screenshotPath, fullPage: true });
+            process.stdout.write(JSON.stringify(result));
+            return;
+        }
+
+        result.session_valid = true;
+
+        if (!payload.channelId) {
+            const goLiveLink = await clickByText(page, ['Go live', 'Mulai siaran', 'Live']);
+            if (goLiveLink.clicked) {
+                await page.waitForTimeout(3000);
+            }
+        }
+
+        const firstClick = await clickByText(page, [
+            'Go live',
+            'Mulai siaran',
+            'Siarkan langsung',
+            'Live Control Room',
+        ]);
+
+        if (firstClick.clicked) {
+            result.clicked_go_live = true;
+            result.status = 'ready';
+            result.message = `Halaman Go Live berhasil dibuka${payload.googleEmail ? ` untuk ${payload.googleEmail}` : ''}.`;
+        } else {
+            result.status = 'session_ok';
+            result.message = 'Session YouTube valid, tetapi tombol Go Live tidak ditemukan otomatis. Cek screenshot untuk menyesuaikan selector.';
+        }
+
+        await page.waitForTimeout(4000);
+        await page.screenshot({ path: payload.screenshotPath, fullPage: true });
+        result.currentUrl = page.url();
+        result.success = result.session_valid;
+    } catch (error) {
+        result = {
+            ...result,
+            success: false,
+            status: 'automation_failed',
+            message: error.message,
+        };
+    } finally {
+        await browser.close();
+    }
+
+    process.stdout.write(JSON.stringify(result));
+}
+
+run().catch((error) => {
+    process.stdout.write(JSON.stringify({
+        success: false,
+        status: 'fatal_error',
+        message: error.message,
+    }));
+});
