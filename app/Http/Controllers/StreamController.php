@@ -107,6 +107,24 @@ class StreamController extends Controller
         }
     }
 
+    public function startFromPlaylist(Request $request)
+    {
+        $request->validate(['playlist_id' => 'required|exists:playlists,id']);
+
+        $playlist = Playlist::where('id', $request->playlist_id)
+                            ->where('user_id', auth()->id())
+                            ->with('videos')
+                            ->firstOrFail();
+
+        if ($playlist->videos->isEmpty()) {
+            return redirect()->route('stream.index')->with('error', 'Playlist kosong! Tambahkan video ke playlist terlebih dahulu.');
+        }
+
+        // Inject video IDs ordered by pivot order, then delegate to start()
+        $request->merge(['videos' => $playlist->videos->pluck('id')->toArray()]);
+        return $this->start($request);
+    }
+
     public function start(Request $request)
     {
         $request->validate([
