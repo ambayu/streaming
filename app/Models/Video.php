@@ -16,6 +16,11 @@ class Video extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function playlists()
+    {
+        return $this->belongsToMany(Playlist::class, 'playlist_video')->withPivot('order');
+    }
+
     protected static function boot()
     {
         parent::boot();

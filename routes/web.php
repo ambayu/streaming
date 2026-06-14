@@ -8,14 +8,23 @@ use App\Http\Controllers\StreamController;
 
 Auth::routes();
 
+use App\Http\Controllers\PlaylistController;
+
 Route::middleware('auth')->group(function () {
     Route::resource('videos', VideoController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::get('stream', [StreamController::class, 'index'])->name('stream.index');
     Route::post('stream/key', [StreamController::class, 'storeKey'])->name('stream.storeKey');
     Route::post('stream/start', [StreamController::class, 'start'])->name('stream.start');
+    Route::post('stream/start-playlist', [StreamController::class, 'startFromPlaylist'])->name('stream.startPlaylist');
     Route::post('stream/stop', [StreamController::class, 'stop'])->name('stream.stop');
     Route::post('/stream/update-order', [StreamController::class, 'updateOrder'])->name('stream.updateOrder');
     Route::post('stream/clear-errors', [StreamController::class, 'clearErrors'])->name('stream.clearErrors');
+
+    // Playlist routes
+    Route::resource('playlists', PlaylistController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+    Route::post('playlists/{playlist}/videos', [PlaylistController::class, 'addVideo'])->name('playlists.addVideo');
+    Route::delete('playlists/{playlist}/videos/{video}', [PlaylistController::class, 'removeVideo'])->name('playlists.removeVideo');
+    Route::post('playlists/{playlist}/reorder', [PlaylistController::class, 'reorder'])->name('playlists.reorder');
 });
 
 // Route video stream & thumbnail tanpa auth (untuk browser video player & img tag)

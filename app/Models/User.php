@@ -28,6 +28,11 @@ class User extends Authenticatable
         return $this->hasMany(Video::class);
     }
 
+    public function playlists()
+    {
+        return $this->hasMany(Playlist::class);
+    }
+
     public function streamSettings()
     {
         return $this->hasOne(StreamSetting::class);

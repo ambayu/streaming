@@ -23,6 +23,7 @@ class StreamController extends Controller
     {
         $setting = auth()->user()->streamSettings;
         $videos = auth()->user()->videos()->orderBy('order')->get();
+        $playlists = auth()->user()->playlists()->withCount('videos')->latest()->get();
 
         $pm2Name = 'stream_' . auth()->id();
         $pm2Path = '/usr/bin/pm2';
@@ -73,7 +74,7 @@ class StreamController extends Controller
         $streamingVideos = Session::get('streaming_videos_' . auth()->id(), []);
 
         return view('stream.index', compact(
-            'setting', 'videos', 'isStreaming',
+            'setting', 'videos', 'playlists', 'isStreaming',
             'pm2Status', 'streamLog', 'errorLog', 'playingLine',
             'streamingVideos', 'loadavg', 'meminfo', 'diskinfo'
         ));
@@ -151,6 +152,13 @@ class StreamController extends Controller
                 ];
             })->toArray();
             Session::put('streaming_videos_' . auth()->id(), $streamingVideos);
+
+            // Update database streaming status
+            $setting->update([
+                'is_active' => true,
+                'last_playlist_id' => $request->input('playlist_id'),
+                'last_video_ids' => $videoIds,
+            ]);
 
             $scriptPath = base_path('scripts/stream_' . auth()->id() . '.sh');
             $logFile = storage_path('logs/stream_' . auth()->id() . '.log');
@@ -271,10 +279,15 @@ EOD;
         }
     }
 
-    public function stop()
+    public function stop($userId = null)
     {
         try {
-            $pm2Name = 'stream_' . auth()->id();
+            $targetUserId = $userId ?: auth()->id();
+            if (!$targetUserId) {
+                throw new \Exception("User ID tidak valid.");
+            }
+
+            $pm2Name = 'stream_' . $targetUserId;
             $pm2Path = '/usr/bin/pm2';
             $env = [
                 'PM2_HOME' => '/var/www/.pm2',
@@ -293,10 +306,23 @@ EOD;
                 }
             }
 
-            Session::forget('streaming_videos_' . auth()->id());
+            // Update database streaming status
+            $user = \App\Models\User::find($targetUserId);
+            if ($user && $user->streamSettings) {
+                $user->streamSettings->update(['is_active' => false]);
+            }
+
+            Session::forget('streaming_videos_' . $targetUserId);
+
+            if (request()->expectsJson()) {
+                return response()->json(['success' => true]);
+            }
 
             return redirect()->route('stream.index')->with('success', 'Streaming berhasil dihentikan!');
         } catch (\Exception $e) {
+            if (request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            }
             return redirect()->route('stream.index')->with('error', 'Gagal menghentikan streaming: ' . $e->getMessage());
         }
     }
