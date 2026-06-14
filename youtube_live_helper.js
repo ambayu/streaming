@@ -5,10 +5,10 @@ const puppeteer = require('puppeteer-core');
 function findBrowserExecutable() {
     const candidates = [
         process.env.PUPPETEER_EXECUTABLE_PATH,
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/google-chrome',
         '/usr/bin/chromium-browser',
         '/usr/bin/chromium',
-        '/usr/bin/google-chrome',
-        '/usr/bin/google-chrome-stable',
     ].filter(Boolean);
 
     for (const candidate of candidates) {
