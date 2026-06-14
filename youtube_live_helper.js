@@ -29,6 +29,10 @@ function decodePayload() {
     return JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
 }
 
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function normalizeCookie(cookie) {
     if (!cookie || typeof cookie !== 'object') {
         return null;
@@ -162,7 +166,7 @@ async function run() {
             : 'https://studio.youtube.com/';
 
         await page.goto(dashboardUrl, { waitUntil: 'networkidle2', timeout: 90000 });
-        await page.waitForTimeout(5000);
+        await sleep(5000);
 
         result.currentUrl = page.url();
 
@@ -182,7 +186,7 @@ async function run() {
         if (!payload.channelId) {
             const goLiveLink = await clickByText(page, ['Go live', 'Mulai siaran', 'Live']);
             if (goLiveLink.clicked) {
-                await page.waitForTimeout(3000);
+                await sleep(3000);
             }
         }
 
@@ -202,7 +206,7 @@ async function run() {
             result.message = 'Session YouTube valid, tetapi tombol Go Live tidak ditemukan otomatis. Cek screenshot untuk menyesuaikan selector.';
         }
 
-        await page.waitForTimeout(4000);
+        await sleep(4000);
         await page.screenshot({ path: payload.screenshotPath, fullPage: true });
         result.currentUrl = page.url();
         result.success = result.session_valid;
