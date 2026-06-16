@@ -254,9 +254,9 @@ EOD;
                 'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'
             ];
 
-            // 5. Jalankan streaming PM2 dengan melakukan restart sebanyak 3 kali secara berurutan
+            // 5. Jalankan streaming PM2. Scheduler akan mencoba lagi tiap 5 menit jika YouTube belum live.
             $started = false;
-            $maxAttempts = 3;
+            $maxAttempts = 1;
 
             for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
                 $this->logMessage("Menjalankan restart PM2 untuk User $userId (Percobaan $attempt dari $maxAttempts)...");
