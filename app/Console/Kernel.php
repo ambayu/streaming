@@ -16,7 +16,10 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         // $schedule->command('inspire')->hourly();
-        $schedule->command('stream:auto-restart')->everyFiveMinutes()->withoutOverlapping();
+        $schedule->command('stream:auto-restart')
+            ->dailyAt('06:00')
+            ->timezone('Asia/Jakarta')
+            ->withoutOverlapping();
     }
 
     /**

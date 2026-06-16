@@ -6,7 +6,6 @@ use Illuminate\Console\Command;
 use App\Models\StreamSetting;
 use App\Models\Video;
 use App\Models\Playlist;
-use App\Services\YouTubeAutomationService;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 
@@ -24,7 +23,7 @@ class AutoRestartStream extends Command
      *
      * @var string
      */
-    protected $description = 'Otomatis restart streaming jam 6 pagi dengan playlist/video terakhir yang diputar';
+    protected $description = 'Otomatis stop/play streaming 5 kali jam 6 pagi dengan playlist/video terakhir tanpa cek YouTube';
 
     /**
      * Create a new command instance.
@@ -73,7 +72,6 @@ class AutoRestartStream extends Command
     public function handle()
     {
         $this->logMessage("=== Memulai Proses Auto-Restart Streaming ===");
-        $youTubeAutomationService = app(YouTubeAutomationService::class);
         $targetUserId = $this->option('user');
         $dryRun = (bool) $this->option('dry-run');
 
@@ -95,43 +93,7 @@ class AutoRestartStream extends Command
 
         foreach ($activeSettings as $setting) {
             $userId = $setting->user_id;
-            $this->logMessage("Memproses restart untuk User ID: $userId");
-
-            if (!empty($setting->google_email)) {
-                $this->logMessage("Memeriksa status cookie/live YouTube untuk User $userId...");
-                $statusResult = $youTubeAutomationService->checkLiveStatus($setting);
-
-                if (!($statusResult['success'] ?? false)) {
-                    $this->logMessage("Pengecekan YouTube gagal untuk User $userId: " . ($statusResult['message'] ?? 'Unknown error'), 'warning');
-                    continue;
-                }
-
-                if (!empty($statusResult['is_live'])) {
-                    $this->logMessage("User $userId masih live di YouTube. Auto-restart dilewati.");
-                    continue;
-                }
-
-                $this->logMessage("YouTube tidak sedang live untuk User $userId. Lanjut proses start.");
-            }
-
-            if ($dryRun) {
-                $this->logMessage("Dry run aktif untuk User $userId. Proses start PM2/FFmpeg dilewati.");
-                continue;
-            }
-
-            if (!empty($setting->google_email)) {
-                $this->logMessage("Menyiapkan YouTube Go Live untuk User $userId memakai session Chrome VPS...");
-                $prepareResult = $youTubeAutomationService->prepare($setting);
-
-                if (!($prepareResult['success'] ?? false)) {
-                    $this->logMessage(
-                        "Prepare YouTube gagal untuk User $userId: " . ($prepareResult['message'] ?? 'Unknown error') . ". PM2 tetap akan direstart.",
-                        'warning'
-                    );
-                } else {
-                    $this->logMessage("Prepare YouTube selesai untuk User $userId: " . ($prepareResult['message'] ?? 'OK'));
-                }
-            }
+            $this->logMessage("Memproses restart langsung untuk User ID: $userId tanpa cek cookie/OAuth/YouTube.");
 
             // 1. Dapatkan daftar video terakhir
             $videos = collect();
@@ -254,21 +216,27 @@ EOD;
                 'PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'
             ];
 
-            // 5. Jalankan streaming PM2. Scheduler akan mencoba lagi tiap 5 menit jika YouTube belum live.
+            if ($dryRun) {
+                $this->logMessage("Dry run aktif untuk User $userId. Validasi video dan script selesai, proses PM2/FFmpeg dilewati.");
+                continue;
+            }
+
+            // 5. Jalankan stop/play PM2 sebanyak 5 kali tanpa bergantung status YouTube/cookie/login.
             $started = false;
-            $maxAttempts = 1;
+            $maxAttempts = 5;
 
             for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-                $this->logMessage("Menjalankan restart PM2 untuk User $userId (Percobaan $attempt dari $maxAttempts)...");
+                $this->logMessage("Menjalankan stop/play PM2 untuk User $userId (Siklus $attempt dari $maxAttempts)...");
 
                 // Coba stop dan hapus proses PM2 yang sedang berjalan untuk percobaan ini
                 $checkProcess = new Process([$pm2Path, 'pid', $pm2Name], null, $env, null, 15);
                 $checkProcess->run();
 
                 if ($checkProcess->isSuccessful() && !empty(trim($checkProcess->getOutput()))) {
-                    $this->logMessage("Menghentikan streaming sebelum memulai kembali...");
+                    $this->logMessage("Menghentikan streaming sebelum play ulang...");
                     $deleteProcess = new Process([$pm2Path, 'delete', $pm2Name], null, $env, null, 30);
                     $deleteProcess->run();
+                    sleep(2);
                 }
 
                 $startProcess = new Process(
@@ -286,14 +254,14 @@ EOD;
 
                 if ($verifyProcess->isSuccessful() && !empty(trim($verifyProcess->getOutput()))) {
                     $started = true;
-                    $this->logMessage("Stream berhasil dijalankan untuk User $userId pada percobaan ke-$attempt. PID: " . trim($verifyProcess->getOutput()));
+                    $this->logMessage("Stream berhasil dijalankan untuk User $userId pada siklus ke-$attempt. PID: " . trim($verifyProcess->getOutput()));
                 } else {
                     $started = false;
-                    $this->logMessage("Gagal memulai PM2 untuk User $userId pada percobaan ke-$attempt. Error: " . $startProcess->getErrorOutput(), 'error');
+                    $this->logMessage("Gagal memulai PM2 untuk User $userId pada siklus ke-$attempt. Error: " . $startProcess->getErrorOutput(), 'error');
                 }
 
                 if ($attempt < $maxAttempts) {
-                    $this->logMessage("Menunggu 10 detik sebelum melakukan restart berikutnya...", 'warning');
+                    $this->logMessage("Menunggu 10 detik sebelum siklus stop/play berikutnya...", 'warning');
                     sleep(10);
                 }
             }

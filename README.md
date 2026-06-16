@@ -222,6 +222,52 @@ Catatan:
 - jika Google meminta login ulang, cookie perlu diexport ulang
 - hasil screenshot terakhir automasi disimpan di folder session YouTube pada server untuk debugging
 
+## Auto-Restart Jam 06:00
+
+Keputusan operasional terbaru: auto-restart dibuat sederhana dan tidak bergantung pada cookie, login Chrome VPS, OAuth, atau hasil cek live YouTube.
+
+Mekanisme saat ini:
+
+1. Laravel scheduler menjalankan `php artisan stream:auto-restart` setiap hari jam `06:00` WIB.
+2. Command mengambil playlist terakhir atau pilihan video terakhir dari tiap user yang punya `youtube_key`.
+3. Command membuat ulang script streaming `scripts/stream_{user_id}.sh`.
+4. Command menjalankan stop/play PM2 sebanyak `5` siklus.
+5. Setiap siklus akan menghapus proses `pm2` lama jika ada, lalu menjalankan ulang proses `stream_{user_id}`.
+6. Status database `is_active` diset aktif jika siklus terakhir berhasil menghasilkan PID PM2.
+
+Command uji manual:
+
+```bash
+php artisan stream:auto-restart --dry-run
+php artisan stream:auto-restart --user=1
+```
+
+Catatan:
+
+- command ini tidak mengecek apakah YouTube sedang live atau mati
+- command ini tidak membuka YouTube Studio
+- command ini tidak membutuhkan cookie login
+- command ini tidak membutuhkan OAuth Google
+- jika stream key salah atau YouTube belum siap menerima stream, PM2/FFmpeg tetap akan dicoba jalan sesuai konfigurasi aplikasi
+
+## Catatan Lanjutan OAuth YouTube
+
+OAuth resmi YouTube API sempat disiapkan sebagai jalur cek live tanpa cookie, tetapi belum menjadi strategi operasional utama karena Google OAuth membutuhkan redirect URI dengan domain publik valid dan tidak menerima IP/port custom seperti `:82`.
+
+Jika OAuth dilanjutkan nanti, siapkan domain/subdomain tanpa port custom, misalnya:
+
+```text
+https://streaming.example.com/youtube/oauth/callback
+```
+
+Lalu isi env server:
+
+```env
+GOOGLE_YOUTUBE_CLIENT_ID=
+GOOGLE_YOUTUBE_CLIENT_SECRET=
+GOOGLE_YOUTUBE_REDIRECT_URI=
+```
+
 ## Lokasi File Penting
 
 - `app/Http/Controllers/StreamController.php`
