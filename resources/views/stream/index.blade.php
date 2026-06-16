@@ -50,6 +50,12 @@
         color: var(--text-muted);
     }
 
+    .status-badge.warning {
+        background: rgba(245,158,11,0.15);
+        border: 1px solid rgba(245,158,11,0.32);
+        color: #fbbf24;
+    }
+
     .status-badge .dot {
         width: 7px; height: 7px;
         border-radius: 50%;
@@ -62,6 +68,12 @@
     }
 
     .status-badge.offline .dot { background: var(--text-muted); }
+
+    .status-badge.warning .dot {
+        background: #fbbf24;
+        box-shadow: 0 0 6px #f59e0b;
+        animation: pulse 1.5s infinite;
+    }
 
     @keyframes pulse {
         0%, 100% { opacity: 1; transform: scale(1); }
@@ -808,6 +820,9 @@
         'missing_public_channel' => ['label' => 'Channel Missing', 'class' => 'danger'],
     ];
     $ytStatusUi = $ytStatusMap[$ytStatus] ?? ['label' => 'Belum Dicek', 'class' => 'neutral'];
+    $youtubeNotLive = $ytStatus === 'not_live';
+    $localStreamingOnly = $isStreaming && $youtubeNotLive;
+    $canStartStreaming = !$isStreaming || $localStreamingOnly;
 @endphp
 
 {{-- Page Header --}}
@@ -817,7 +832,9 @@
         <p>Kelola dan pantau siaran langsung YouTube Anda</p>
     </div>
     <div>
-        @if ($isStreaming)
+        @if ($localStreamingOnly)
+            <span class="status-badge warning"><span class="dot"></span> Lokal Aktif, YouTube Mati</span>
+        @elseif ($isStreaming)
             <span class="status-badge live"><span class="dot"></span> LIVE Sekarang</span>
         @else
             <span class="status-badge offline"><span class="dot"></span> Tidak Aktif</span>
@@ -1009,7 +1026,7 @@
                         </span>
                     @elseif (($setting->youtube_last_prepare_status ?? null) === 'not_live')
                         <span class="badge-item warning">
-                            <i class="fas fa-circle-pause"></i> Aman Untuk Start
+                            <i class="fas fa-circle-pause"></i> YouTube Mati
                         </span>
                     @endif
                 </div>
@@ -1164,13 +1181,13 @@
                     <form action="{{ route('stream.startPlaylist') }}" method="POST">
                         @csrf
                         <div style="display:flex;gap:8px;">
-                            <select name="playlist_id" id="playlist_id" style="flex:1;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:9px;color:var(--text-primary);padding:9px 12px;font-size:0.85rem;outline:none;font-family:inherit;cursor:pointer;" @if($isStreaming) disabled @endif>
+                            <select name="playlist_id" id="playlist_id" style="flex:1;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:9px;color:var(--text-primary);padding:9px 12px;font-size:0.85rem;outline:none;font-family:inherit;cursor:pointer;" @if(!$canStartStreaming) disabled @endif>
                                 <option value="">-- Pilih playlist --</option>
                                 @foreach ($playlists as $pl)
                                     <option value="{{ $pl->id }}">{{ $pl->name }} ({{ $pl->videos_count }} video)</option>
                                 @endforeach
                             </select>
-                            <button type="submit" class="btn-stream success" style="width:auto;padding:9px 16px;" @if($isStreaming) disabled @endif>
+                            <button type="submit" class="btn-stream success" style="width:auto;padding:9px 16px;" @if(!$canStartStreaming) disabled @endif>
                                 <i class="fas fa-play"></i>
                             </button>
                         </div>
@@ -1181,8 +1198,8 @@
                 @endif
 
                 <button class="btn-stream success" type="submit" form="streamForm"
-                    @if ($isStreaming) disabled @endif>
-                    <i class="fas fa-play-circle"></i> Mulai Streaming Manual
+                    @if (!$canStartStreaming) disabled @endif>
+                    <i class="fas fa-play-circle"></i> {{ $localStreamingOnly ? 'Restart Streaming Manual' : 'Mulai Streaming Manual' }}
                 </button>
 
                 <button class="btn-stream outline" type="button"
@@ -1201,6 +1218,16 @@
                 </form>
 
                 <p style="font-size:0.78rem;color:var(--text-muted);text-align:center;margin-top:12px;margin-bottom:0;">
+                    @if ($localStreamingOnly)
+                        Proses lokal aktif, tetapi YouTube tidak live. Jalankan restart streaming.
+                    @elseif ($isStreaming)
+                        Siaran lokal sedang aktif.
+                    @else
+                        Streaming belum dimulai.
+                    @endif
+                </p>
+
+                <p style="display:none;font-size:0.78rem;color:var(--text-muted);text-align:center;margin-top:12px;margin-bottom:0;">
                     {{ $isStreaming ? '⚡ Siaran sedang aktif' : '⏸ Streaming belum dimulai' }}
                 </p>
 
@@ -1212,7 +1239,7 @@
 </div>
 
 {{-- ===== Pilih Video (Collapsible, Full Width) ===== --}}
-<div id="startForm" style="{{ $isStreaming ? 'display:none;' : '' }} margin-top: 4px;">
+<div id="startForm" style="{{ ($isStreaming && !$localStreamingOnly) ? 'display:none;' : '' }} margin-top: 4px;">
     <div class="stream-card">
         <div class="card-head">
             <h3><i class="fas fa-video"></i> Pilih Video untuk Streaming</h3>
