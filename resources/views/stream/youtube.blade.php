@@ -235,6 +235,7 @@
         'not_live' => ['label' => 'Not Live', 'class' => 'warning'],
         'login_required' => ['label' => 'Login Required', 'class' => 'danger'],
         'missing_cookies' => ['label' => 'Cookie Missing', 'class' => 'danger'],
+        'missing_public_channel' => ['label' => 'Channel Missing', 'class' => 'danger'],
     ];
     $statusUi = $statusMap[$status] ?? ['label' => 'Belum Dicek', 'class' => 'neutral'];
 @endphp
@@ -267,7 +268,7 @@
                 <span class="value">{{ $setting->google_email ?? 'Belum diatur' }}</span>
             </div>
             <div class="account-pill">
-                <span class="label">Channel ID</span>
+                <span class="label">Channel Publik</span>
                 <span class="value">{{ $setting->youtube_channel_id ?? 'Otomatis / belum diatur' }}</span>
             </div>
         </div>
@@ -294,18 +295,18 @@
                         <p style="font-size:0.78rem;color:#f87171;margin:6px 0 0 0;">{{ $message }}</p>
                     @enderror
 
-                    <label class="form-label-dark" for="youtube_channel_id" style="margin-top:14px;">Channel ID <span style="color:var(--text-muted);font-weight:400">(opsional tapi disarankan)</span></label>
+                    <label class="form-label-dark" for="youtube_channel_id" style="margin-top:14px;">Channel ID / URL / @handle <span style="color:var(--text-muted);font-weight:400">(disarankan untuk cek otomatis tanpa cookie)</span></label>
                     <input type="text"
                            name="youtube_channel_id"
                            id="youtube_channel_id"
                            class="input-dark"
                            value="{{ old('youtube_channel_id', $setting->youtube_channel_id ?? '') }}"
-                           placeholder="UCxxxxxxxxxxxxxxxxxxxxxx">
+                           placeholder="@TheForestKidss atau https://www.youtube.com/@TheForestKidss">
                     @error('youtube_channel_id')
                         <p style="font-size:0.78rem;color:#f87171;margin:6px 0 0 0;">{{ $message }}</p>
                     @enderror
 
-                    <p class="form-hint">Email dan channel ID ini dipakai khusus untuk akun website yang sedang login.</p>
+                    <p class="form-hint">Channel publik dipakai untuk cek live otomatis tanpa cookie. Cookie tetap dipakai hanya saat bot perlu membuka YouTube Studio/Go Live.</p>
 
                     <button type="submit" class="btn-save">
                         <i class="fas fa-link"></i> Simpan Koneksi

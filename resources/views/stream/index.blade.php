@@ -805,6 +805,7 @@
         'not_live' => ['label' => 'Not Live', 'class' => 'warning'],
         'login_required' => ['label' => 'Login Required', 'class' => 'danger'],
         'missing_cookies' => ['label' => 'Cookie Missing', 'class' => 'danger'],
+        'missing_public_channel' => ['label' => 'Channel Missing', 'class' => 'danger'],
     ];
     $ytStatusUi = $ytStatusMap[$ytStatus] ?? ['label' => 'Belum Dicek', 'class' => 'neutral'];
 @endphp

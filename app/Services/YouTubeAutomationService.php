@@ -21,11 +21,21 @@ class YouTubeAutomationService
     protected function runAction(StreamSetting $setting, string $action): array
     {
         $cookiePath = $setting->youtube_cookie_path;
-        if (empty($cookiePath) || !Storage::disk('local')->exists($cookiePath)) {
+        $hasCookie = !empty($cookiePath) && Storage::disk('local')->exists($cookiePath);
+
+        if (!$hasCookie && $action !== 'status') {
             return [
                 'success' => false,
                 'status' => 'missing_cookies',
                 'message' => 'Cookie YouTube belum diunggah. Upload file cookie JSON terlebih dahulu.',
+            ];
+        }
+
+        if (!$hasCookie && $action === 'status' && empty($setting->youtube_channel_id)) {
+            return [
+                'success' => false,
+                'status' => 'missing_public_channel',
+                'message' => 'Isi Channel ID, URL channel, atau @handle agar status live bisa dicek otomatis tanpa cookie.',
             ];
         }
 
@@ -56,7 +66,7 @@ class YouTubeAutomationService
             'userId' => (int) $setting->user_id,
             'googleEmail' => $setting->google_email,
             'channelId' => $setting->youtube_channel_id,
-            'cookiePath' => Storage::disk('local')->path($cookiePath),
+            'cookiePath' => $hasCookie ? Storage::disk('local')->path($cookiePath) : null,
             'sessionDir' => storage_path('app/youtube-sessions/' . $setting->user_id),
             'screenshotPath' => storage_path('app/youtube-sessions/' . $setting->user_id . '/last-' . $action . '.png'),
         ];

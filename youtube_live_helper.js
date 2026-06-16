@@ -38,6 +38,35 @@ function extractChannelId(url) {
     return match ? match[1] : null;
 }
 
+function isYouTubeChannelId(value) {
+    return /^UC[a-zA-Z0-9_-]+$/.test(String(value || '').trim());
+}
+
+function buildPublicChannelTargets(identifier) {
+    const raw = String(identifier || '').trim();
+    if (!raw) {
+        return [];
+    }
+
+    const withoutTrailingSlash = raw.replace(/\/+$/, '');
+    let baseUrl = withoutTrailingSlash;
+
+    if (/^https?:\/\//i.test(withoutTrailingSlash)) {
+        baseUrl = withoutTrailingSlash;
+    } else if (withoutTrailingSlash.startsWith('@')) {
+        baseUrl = `https://www.youtube.com/${withoutTrailingSlash}`;
+    } else if (/^UC[a-zA-Z0-9_-]+$/.test(withoutTrailingSlash)) {
+        baseUrl = `https://www.youtube.com/channel/${withoutTrailingSlash}`;
+    } else {
+        baseUrl = `https://www.youtube.com/@${withoutTrailingSlash.replace(/^@/, '')}`;
+    }
+
+    return [
+        `${baseUrl}/streams`,
+        `${baseUrl}/live`,
+    ];
+}
+
 function normalizeCookie(cookie) {
     if (!cookie || typeof cookie !== 'object') {
         return null;
@@ -212,8 +241,10 @@ async function detectPublicLiveStatus(page) {
     });
 }
 
-async function checkPublicChannelLive(page, channelId) {
-    if (!channelId) {
+async function checkPublicChannelLive(page, identifier) {
+    const targets = buildPublicChannelTargets(identifier);
+
+    if (targets.length === 0) {
         return {
             isLive: false,
             checked: false,
@@ -221,13 +252,8 @@ async function checkPublicChannelLive(page, channelId) {
         };
     }
 
-    const targets = [
-        `https://www.youtube.com/channel/${channelId}/streams`,
-        `https://www.youtube.com/channel/${channelId}/live`,
-    ];
-
     for (const targetUrl of targets) {
-        await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 90000 });
+        await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await sleep(4000);
 
         const detection = await detectPublicLiveStatus(page);
@@ -282,6 +308,23 @@ async function run() {
         await page.setViewport({ width: 1440, height: 900 });
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36');
 
+        if (payload.action === 'status' && payload.channelId) {
+            const publicStatus = await checkPublicChannelLive(page, payload.channelId);
+            if (publicStatus.checked) {
+                result.success = true;
+                result.session_valid = false;
+                result.is_live = publicStatus.isLive;
+                result.status = publicStatus.isLive ? 'already_live' : 'not_live';
+                result.message = publicStatus.isLive
+                    ? `YouTube masih live untuk ${payload.googleEmail || 'akun ini'} berdasarkan halaman publik. Start streaming akan dilewati.`
+                    : 'YouTube tidak terdeteksi live dari halaman publik. Aman untuk lanjut start streaming.';
+                result.currentUrl = publicStatus.url || page.url();
+                await page.screenshot({ path: payload.screenshotPath, fullPage: true });
+                process.stdout.write(JSON.stringify(result));
+                return;
+            }
+        }
+
         if (payload.cookiePath && fs.existsSync(payload.cookiePath)) {
             const cookies = loadCookies(payload.cookiePath);
             if (cookies.length > 0) {
@@ -289,7 +332,7 @@ async function run() {
             }
         }
 
-        const dashboardUrl = payload.channelId
+        const dashboardUrl = isYouTubeChannelId(payload.channelId)
             ? `https://studio.youtube.com/channel/${payload.channelId}/livestreaming/dashboard`
             : 'https://studio.youtube.com/';
 
