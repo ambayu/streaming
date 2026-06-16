@@ -30,4 +30,10 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'google_youtube' => [
+        'client_id' => env('GOOGLE_YOUTUBE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_YOUTUBE_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_YOUTUBE_REDIRECT_URI'),
+    ],
+
 ];

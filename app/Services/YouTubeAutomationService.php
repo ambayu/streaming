@@ -15,6 +15,18 @@ class YouTubeAutomationService
 
     public function checkLiveStatus(StreamSetting $setting): array
     {
+        if (!empty($setting->google_oauth_refresh_token)) {
+            $result = app(YouTubeOAuthService::class)->checkLiveStatus($setting);
+            $setting->update([
+                'youtube_last_prepare_status' => $result['status'] ?? (($result['success'] ?? false) ? 'ok' : 'error'),
+                'youtube_last_prepare_message' => $result['message'] ?? null,
+                'youtube_connected_at' => !empty($result['session_valid']) ? now() : $setting->youtube_connected_at,
+                'youtube_last_checked_at' => now(),
+            ]);
+
+            return $result;
+        }
+
         return $this->runAction($setting, 'status');
     }
 

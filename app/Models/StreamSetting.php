@@ -12,6 +12,10 @@ class StreamSetting extends Model
         'user_id',
         'youtube_key',
         'google_email',
+        'google_oauth_email',
+        'google_oauth_refresh_token',
+        'google_oauth_scopes',
+        'google_oauth_connected_at',
         'youtube_channel_id',
         'youtube_cookie_path',
         'youtube_connected_at',
@@ -26,6 +30,7 @@ class StreamSetting extends Model
     protected $casts = [
         'last_video_ids' => 'array',
         'is_active' => 'boolean',
+        'google_oauth_connected_at' => 'datetime',
         'youtube_connected_at' => 'datetime',
         'youtube_last_checked_at' => 'datetime',
     ];

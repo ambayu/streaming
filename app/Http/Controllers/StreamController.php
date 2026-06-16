@@ -7,12 +7,15 @@ use App\Models\Video;
 use Illuminate\Http\Request;
 use App\Models\StreamSetting;
 use App\Services\YouTubeAutomationService;
+use App\Services\YouTubeOAuthService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Str;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class StreamController extends Controller
@@ -177,6 +180,97 @@ class StreamController extends Controller
         return response()->file($path, [
             'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
         ]);
+    }
+
+    public function redirectYoutubeOAuth(YouTubeOAuthService $youTubeOAuthService)
+    {
+        if (!$youTubeOAuthService->isConfigured()) {
+            return redirect()->route('stream.youtube')
+                ->with('error', 'Google OAuth YouTube belum dikonfigurasi. Isi GOOGLE_YOUTUBE_CLIENT_ID dan GOOGLE_YOUTUBE_CLIENT_SECRET di .env.');
+        }
+
+        if (!auth()->user()->streamSettings) {
+            return redirect()->route('stream.index')
+                ->with('error', 'Simpan YouTube stream key terlebih dahulu sebelum menghubungkan OAuth YouTube.');
+        }
+
+        $state = Str::random(48);
+        Session::put('youtube_oauth_state', $state);
+
+        return redirect()->away($youTubeOAuthService->authorizationUrl($state));
+    }
+
+    public function handleYoutubeOAuthCallback(Request $request, YouTubeOAuthService $youTubeOAuthService)
+    {
+        if ($request->filled('error')) {
+            return redirect()->route('stream.youtube')
+                ->with('error', 'OAuth Google dibatalkan/ditolak: ' . $request->input('error'));
+        }
+
+        if (!$request->filled('code') || $request->input('state') !== Session::pull('youtube_oauth_state')) {
+            return redirect()->route('stream.youtube')
+                ->with('error', 'Callback OAuth Google tidak valid. Silakan coba connect ulang.');
+        }
+
+        $setting = auth()->user()->streamSettings;
+        if (!$setting) {
+            return redirect()->route('stream.index')
+                ->with('error', 'Simpan YouTube stream key terlebih dahulu sebelum menghubungkan OAuth YouTube.');
+        }
+
+        $token = $youTubeOAuthService->fetchTokenFromCode($request->input('code'));
+        if (!($token['success'] ?? false)) {
+            return redirect()->route('stream.youtube')
+                ->with('error', $token['message'] ?? 'Gagal menghubungkan OAuth YouTube.');
+        }
+
+        $refreshToken = $token['refresh_token'] ?? null;
+        if (!$refreshToken && empty($setting->google_oauth_refresh_token)) {
+            return redirect()->route('stream.youtube')
+                ->with('error', 'Google tidak mengirim refresh token. Klik connect ulang dan pastikan consent disetujui.');
+        }
+
+        $userInfo = !empty($token['access_token'])
+            ? $youTubeOAuthService->fetchUserInfo($token['access_token'])
+            : [];
+        $email = $userInfo['email'] ?? $setting->google_email;
+
+        $updates = [
+            'google_email' => $email ?: $setting->google_email,
+            'google_oauth_email' => $email,
+            'google_oauth_scopes' => $token['scope'] ?? implode(' ', $youTubeOAuthService->scopes()),
+            'google_oauth_connected_at' => now(),
+            'youtube_connected_at' => now(),
+            'youtube_last_prepare_status' => 'ready',
+            'youtube_last_prepare_message' => 'OAuth YouTube berhasil terhubung. Pengecekan live akan memakai YouTube API resmi.',
+        ];
+
+        if ($refreshToken) {
+            $updates['google_oauth_refresh_token'] = Crypt::encryptString($refreshToken);
+        }
+
+        $setting->update($updates);
+
+        return redirect()->route('stream.youtube')
+            ->with('success', 'OAuth YouTube berhasil terhubung untuk ' . ($email ?: 'akun Google ini') . '.');
+    }
+
+    public function disconnectYoutubeOAuth()
+    {
+        $setting = auth()->user()->streamSettings;
+        if ($setting) {
+            $setting->update([
+                'google_oauth_email' => null,
+                'google_oauth_refresh_token' => null,
+                'google_oauth_scopes' => null,
+                'google_oauth_connected_at' => null,
+                'youtube_last_prepare_status' => 'oauth_disconnected',
+                'youtube_last_prepare_message' => 'OAuth YouTube diputus dari aplikasi.',
+            ]);
+        }
+
+        return redirect()->route('stream.youtube')
+            ->with('success', 'OAuth YouTube berhasil diputus.');
     }
 
     public function youtubeBrowserAction(Request $request)

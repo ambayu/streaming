@@ -269,8 +269,13 @@
         'login_required' => ['label' => 'Login Required', 'class' => 'danger'],
         'missing_cookies' => ['label' => 'Cookie Missing', 'class' => 'danger'],
         'missing_public_channel' => ['label' => 'Channel Missing', 'class' => 'danger'],
+        'oauth_not_configured' => ['label' => 'OAuth Belum Diset', 'class' => 'danger'],
+        'oauth_login_required' => ['label' => 'OAuth Login Ulang', 'class' => 'danger'],
+        'oauth_api_error' => ['label' => 'OAuth API Error', 'class' => 'danger'],
+        'oauth_disconnected' => ['label' => 'OAuth Terputus', 'class' => 'warning'],
     ];
     $statusUi = $statusMap[$status] ?? ['label' => 'Belum Dicek', 'class' => 'neutral'];
+    $oauthConfigured = !empty(config('services.google_youtube.client_id')) && !empty(config('services.google_youtube.client_secret'));
 @endphp
 <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-3">
     <div>
@@ -301,6 +306,10 @@
                 <span class="value">{{ $setting->google_email ?? 'Belum diatur' }}</span>
             </div>
             <div class="account-pill">
+                <span class="label">OAuth YouTube</span>
+                <span class="value">{{ $setting->google_oauth_email ?? 'Belum terhubung' }}</span>
+            </div>
+            <div class="account-pill">
                 <span class="label">Channel Publik</span>
                 <span class="value">{{ $setting->youtube_channel_id ?? 'Otomatis / belum diatur' }}</span>
             </div>
@@ -310,6 +319,73 @@
 
 <div class="row g-4">
     <div class="col-lg-7">
+        <div class="stream-card">
+            <div class="card-head">
+                <h3><i class="fab fa-google" style="color:#60a5fa;"></i> OAuth Resmi YouTube API</h3>
+            </div>
+            <div class="card-body-inner">
+                <p style="font-size:0.83rem;color:var(--text-secondary);margin:0 0 12px 0;">
+                    OAuth dipakai untuk cek live lewat YouTube API resmi tanpa cookie dan tanpa login password di Chrome VPS.
+                </p>
+
+                <div class="status-badge-grid">
+                    @if (!empty($setting->google_oauth_refresh_token ?? null))
+                        <span class="status-pill success">
+                            <i class="fas fa-circle-check"></i> OAuth Connected
+                        </span>
+                    @else
+                        <span class="status-pill neutral">
+                            <i class="fas fa-plug-circle-xmark"></i> OAuth Belum Terhubung
+                        </span>
+                    @endif
+
+                    @if ($oauthConfigured)
+                        <span class="status-pill success">
+                            <i class="fas fa-key"></i> Client ID Siap
+                        </span>
+                    @else
+                        <span class="status-pill danger">
+                            <i class="fas fa-triangle-exclamation"></i> Env OAuth Belum Diset
+                        </span>
+                    @endif
+                </div>
+
+                <div style="margin-bottom:12px;padding:12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border-color);">
+                    <div class="info-row" style="padding-top:0;">
+                        <span class="info-label">Email OAuth</span>
+                        <span class="info-value">{{ $setting->google_oauth_email ?? 'Belum terhubung' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Terhubung</span>
+                        <span class="info-value">{{ optional($setting->google_oauth_connected_at ?? null)->format('d M Y H:i') ?? 'Belum ada data' }}</span>
+                    </div>
+                    <div class="info-row" style="border-bottom:none;padding-bottom:0;">
+                        <span class="info-label">Callback</span>
+                        <span class="info-value">{{ config('services.google_youtube.redirect_uri') ?: route('stream.youtubeOAuthCallback') }}</span>
+                    </div>
+                </div>
+
+                @if (!$oauthConfigured)
+                    <p class="form-hint" style="margin-bottom:12px;">
+                        Isi GOOGLE_YOUTUBE_CLIENT_ID, GOOGLE_YOUTUBE_CLIENT_SECRET, dan GOOGLE_YOUTUBE_REDIRECT_URI di file .env server sebelum connect.
+                    </p>
+                @endif
+
+                <div class="quick-actions" style="margin-bottom:0;">
+                    <a href="{{ route('stream.youtubeOAuthRedirect') }}" class="btn-stream outline">
+                        <i class="fab fa-google"></i> Connect Google OAuth
+                    </a>
+
+                    <form action="{{ route('stream.youtubeOAuthDisconnect') }}" method="POST">
+                        @csrf
+                        <button type="submit" class="btn-stream outline">
+                            <i class="fas fa-link-slash"></i> Putus OAuth
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <div class="stream-card">
             <div class="card-head">
                 <h3><i class="fab fa-google" style="color:#60a5fa;"></i> Koneksi Akun Google</h3>
