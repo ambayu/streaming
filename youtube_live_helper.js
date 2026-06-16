@@ -199,19 +199,27 @@ async function detectLiveStatus(page) {
 async function detectPublicLiveStatus(page) {
     return page.evaluate(() => {
         const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        const bodyText = normalize(document.body?.innerText || '');
         const badgeSelectors = [
             'ytd-thumbnail-overlay-time-status-renderer',
             'ytd-badge-supported-renderer',
-            'span',
-            'div',
+            '.badge-shape-wiz__text',
+            '[aria-label="LIVE"]',
+            '[aria-label="Live"]',
         ];
+
+        const isLiveBadgeText = (text) => {
+            const value = normalize(text);
+            return value === 'live'
+                || value === 'live now'
+                || value === 'sedang live'
+                || value === 'langsung';
+        };
 
         const visibleBadges = [];
         badgeSelectors.forEach((selector) => {
             document.querySelectorAll(selector).forEach((node) => {
-                const text = normalize(node.innerText || node.textContent || '');
-                if (!text || !text.includes('live')) {
+                const text = normalize(node.innerText || node.textContent || node.getAttribute('aria-label') || '');
+                if (!text || !isLiveBadgeText(text)) {
                     return;
                 }
 
@@ -224,19 +232,10 @@ async function detectPublicLiveStatus(page) {
             });
         });
 
-        const liveVideoLinks = Array.from(document.querySelectorAll('a[href*=\"/watch\"], a[href*=\"/live\"]'))
-            .map((node) => ({
-                text: normalize(node.innerText || node.textContent || ''),
-                aria: normalize(node.getAttribute('aria-label') || ''),
-                href: node.href || '',
-            }))
-            .filter((item) => item.text.includes('live') || item.aria.includes('live'));
-
         return {
-            isLive: visibleBadges.length > 0 || liveVideoLinks.length > 0 || bodyText.includes(' watching'),
+            isLive: visibleBadges.length > 0,
             badges: visibleBadges.slice(0, 10),
-            links: liveVideoLinks.slice(0, 5),
-            pageTextSample: bodyText.slice(0, 3000),
+            pageTextSample: normalize(document.body?.innerText || '').slice(0, 3000),
         };
     });
 }
