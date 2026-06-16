@@ -245,14 +245,14 @@
         margin-bottom: 12px;
     }
 
-    .coord-grid {
+    .browser-step-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(140px, 0.35fr) minmax(0, 0.65fr);
         gap: 10px;
     }
 
     @media (max-width: 767px) {
-        .coord-grid {
+        .browser-step-grid {
             grid-template-columns: 1fr;
         }
     }
@@ -413,32 +413,41 @@
 
                 <form action="{{ route('stream.youtubeBrowserAction') }}" method="POST" style="margin-top:12px;">
                     @csrf
-                    <input type="hidden" name="action" value="click_type">
-                    <div class="coord-grid">
+                    <input type="hidden" name="action" value="smart_type">
+                    <div class="browser-step-grid">
                         <div>
-                            <label class="form-label-dark" for="browser_x">Klik X</label>
-                            <input type="number" name="x" id="browser_x" class="input-dark" min="0" max="3000" placeholder="contoh: 520">
+                            <label class="form-label-dark" for="browser_field">Jenis input</label>
+                            <select name="field" id="browser_field" class="input-dark">
+                                <option value="email">Email</option>
+                                <option value="password">Password</option>
+                                <option value="otp">OTP / Kode</option>
+                                <option value="text">Teks Umum</option>
+                            </select>
                         </div>
                         <div>
-                            <label class="form-label-dark" for="browser_y">Klik Y</label>
-                            <input type="number" name="y" id="browser_y" class="input-dark" min="0" max="3000" placeholder="contoh: 360">
+                            <label class="form-label-dark" for="browser_text">Teks sekali pakai</label>
+                            <input type="text" name="text" id="browser_text" class="input-dark" autocomplete="off" placeholder="Email, password, atau OTP jika diminta">
                         </div>
                     </div>
 
-                    <label class="form-label-dark" for="browser_text" style="margin-top:12px;">Teks sekali pakai</label>
-                    <input type="text" name="text" id="browser_text" class="input-dark" autocomplete="off" placeholder="Email, password, atau OTP jika diminta">
-
                     <label style="display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--text-secondary);font-size:0.82rem;">
-                        <input type="checkbox" name="press_enter" value="1">
-                        Tekan Enter setelah mengetik
+                        <input type="checkbox" name="press_next" value="1" checked>
+                        Klik Next otomatis setelah mengetik
                     </label>
 
                     <button type="submit" class="btn-save">
-                        <i class="fas fa-keyboard"></i> Klik + Ketik ke Chrome VPS
+                        <i class="fas fa-keyboard"></i> Ketik + Next Otomatis
                     </button>
                 </form>
 
                 <div class="quick-actions" style="margin-top:12px;margin-bottom:0;">
+                    <form action="{{ route('stream.youtubeBrowserAction') }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="action" value="next">
+                        <button type="submit" class="btn-stream outline">
+                            <i class="fas fa-forward-step"></i> Klik Next Otomatis
+                        </button>
+                    </form>
                     <form action="{{ route('stream.youtubeBrowserAction') }}" method="POST">
                         @csrf
                         <input type="hidden" name="action" value="key">

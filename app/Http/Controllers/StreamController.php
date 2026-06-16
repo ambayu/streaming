@@ -182,13 +182,15 @@ class StreamController extends Controller
     public function youtubeBrowserAction(Request $request)
     {
         $request->validate([
-            'action' => 'required|in:navigate,screenshot,click,click_type,key',
+            'action' => 'required|in:navigate,screenshot,click,click_type,smart_type,next,key',
             'url' => 'nullable|string|max:2048',
             'x' => 'nullable|integer|min:0|max:3000',
             'y' => 'nullable|integer|min:0|max:3000',
             'text' => 'nullable|string|max:500',
+            'field' => 'nullable|in:email,password,otp,text',
             'key' => 'nullable|in:Enter,Tab,Backspace,Escape',
             'press_enter' => 'nullable|boolean',
+            'press_next' => 'nullable|boolean',
         ]);
 
         if (in_array($request->input('action'), ['click', 'click_type'], true)
@@ -203,8 +205,10 @@ class StreamController extends Controller
             'x' => $request->input('x'),
             'y' => $request->input('y'),
             'text' => $request->input('text'),
+            'field' => $request->input('field') ?: 'text',
             'key' => $request->input('key') ?: 'Enter',
             'pressEnter' => $request->boolean('press_enter'),
+            'pressNext' => $request->boolean('press_next'),
         ]);
 
         if (!($result['success'] ?? false)) {
