@@ -40,6 +40,11 @@ class StreamController extends Controller
 
         $isStreaming = $process->isSuccessful() && !empty(trim($process->getOutput()));
 
+        if (!$isStreaming && $setting && $setting->is_active) {
+            $setting->update(['is_active' => false]);
+            Session::forget('streaming_videos_' . auth()->id());
+        }
+
         $pm2StatusProcess = new Process([$pm2Path, 'jlist'], null, $env, null, 60);
         $pm2StatusProcess->run();
         $pm2Processes = [];
