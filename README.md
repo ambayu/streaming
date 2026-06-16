@@ -250,6 +250,16 @@ Catatan:
 - command ini tidak membutuhkan OAuth Google
 - jika stream key salah atau YouTube belum siap menerima stream, PM2/FFmpeg tetap akan dicoba jalan sesuai konfigurasi aplikasi
 
+## Catatan Start Manual
+
+Keputusan operasional terbaru juga berlaku untuk tombol start/play manual di dashboard:
+
+- tombol start langsung membuat script streaming dan menjalankan PM2/FFmpeg
+- tombol start tidak membuka YouTube Go Live
+- tombol start tidak mengecek status live YouTube
+- tombol start tidak membutuhkan cookie, OAuth, atau session Chrome VPS
+- panel konfigurasi YouTube/cookie/OAuth tetap disimpan sebagai catatan/fasilitas lanjutan, tetapi tidak menjadi syarat untuk menjalankan streaming saat ini
+
 ## Catatan Lanjutan OAuth YouTube
 
 OAuth resmi YouTube API sempat disiapkan sebagai jalur cek live tanpa cookie, tetapi belum menjadi strategi operasional utama karena Google OAuth membutuhkan redirect URI dengan domain publik valid dan tidak menerima IP/port custom seperti `:82`.

@@ -518,19 +518,8 @@ class StreamController extends Controller
             return redirect()->route('stream.index')->with('error', 'YouTube streaming key belum diatur!');
         }
 
-        if (!empty($setting->google_email)) {
-            $liveStatus = $youTubeAutomationService->checkLiveStatus($setting);
-            if (($liveStatus['success'] ?? false) && !empty($liveStatus['is_live'])) {
-                return redirect()->route('stream.index')
-                    ->with('success', $liveStatus['message'] ?? 'YouTube masih live. Start streaming dilewati.');
-            }
-
-            $youtubeResult = $youTubeAutomationService->prepare($setting);
-            if (!($youtubeResult['success'] ?? false)) {
-                return redirect()->route('stream.index')
-                    ->with('error', 'Gagal membuka YouTube Go Live sebelum streaming: ' . ($youtubeResult['message'] ?? 'Unknown error'));
-            }
-        }
+        // Keputusan operasional saat ini: tombol start langsung menjalankan PM2/FFmpeg.
+        // Tidak ada pengecekan live, cookie, OAuth, atau pembukaan YouTube Go Live.
 
         $ffmpegCheck = shell_exec('which ffmpeg 2>&1');
         $pm2Check = shell_exec('which pm2 2>&1');
