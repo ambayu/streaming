@@ -84,10 +84,11 @@ class AutoRestartStream extends Command
                     ->orWhereNotNull('last_video_ids');
             })
             ->whereNotNull('youtube_key')
+            ->where('auto_restart_enabled', true)
             ->get();
 
         if ($activeSettings->isEmpty()) {
-            $this->logMessage("Tidak ada stream dengan riwayat playlist/video yang perlu dijalankan.");
+            $this->logMessage("Tidak ada stream aktif auto-restart dengan riwayat playlist/video yang perlu dijalankan.");
             return 0;
         }
 

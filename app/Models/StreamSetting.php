@@ -24,12 +24,14 @@ class StreamSetting extends Model
         'youtube_last_prepare_message',
         'last_playlist_id',
         'last_video_ids',
-        'is_active'
+        'is_active',
+        'auto_restart_enabled'
     ];
 
     protected $casts = [
         'last_video_ids' => 'array',
         'is_active' => 'boolean',
+        'auto_restart_enabled' => 'boolean',
         'google_oauth_connected_at' => 'datetime',
         'youtube_connected_at' => 'datetime',
         'youtube_last_checked_at' => 'datetime',

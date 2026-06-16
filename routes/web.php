@@ -15,6 +15,7 @@ Route::middleware('auth')->group(function () {
     Route::get('stream', [StreamController::class, 'index'])->name('stream.index');
     Route::get('youtube', [StreamController::class, 'youtube'])->name('stream.youtube');
     Route::post('stream/key', [StreamController::class, 'storeKey'])->name('stream.storeKey');
+    Route::post('stream/auto-restart', [StreamController::class, 'updateAutoRestart'])->name('stream.updateAutoRestart');
     Route::post('stream/youtube-connection', [StreamController::class, 'storeYoutubeConnection'])->name('stream.storeYoutubeConnection');
     Route::post('stream/youtube-cookies', [StreamController::class, 'storeYoutubeCookies'])->name('stream.storeYoutubeCookies');
     Route::post('stream/youtube-refresh-status', [StreamController::class, 'refreshYoutubeStatus'])->name('stream.refreshYoutubeStatus');

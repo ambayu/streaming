@@ -229,11 +229,19 @@ Keputusan operasional terbaru: auto-restart dibuat sederhana dan tidak bergantun
 Mekanisme saat ini:
 
 1. Laravel scheduler menjalankan `php artisan stream:auto-restart` setiap hari jam `06:00` WIB.
-2. Command mengambil playlist terakhir atau pilihan video terakhir dari tiap user yang punya `youtube_key`.
-3. Command membuat ulang script streaming `scripts/stream_{user_id}.sh`.
-4. Command menjalankan stop/play PM2 sebanyak `5` siklus.
-5. Setiap siklus akan menghapus proses `pm2` lama jika ada, lalu menjalankan ulang proses `stream_{user_id}`.
-6. Status database `is_active` diset aktif jika siklus terakhir berhasil menghasilkan PID PM2.
+2. Command hanya memproses user yang punya `youtube_key` dan `auto_restart_enabled = true`.
+3. Command mengambil playlist terakhir atau pilihan video terakhir dari tiap user yang aktif auto-restart.
+4. Command membuat ulang script streaming `scripts/stream_{user_id}.sh`.
+5. Command menjalankan stop/play PM2 sebanyak `5` siklus.
+6. Setiap siklus akan menghapus proses `pm2` lama jika ada, lalu menjalankan ulang proses `stream_{user_id}`.
+7. Status database `is_active` diset aktif jika siklus terakhir berhasil menghasilkan PID PM2.
+
+Pengaturan per akun:
+
+- di halaman `Manajemen Streaming` terdapat kartu `Auto-Restart Jam 06:00`
+- tombol `Aktifkan` membuat akun ikut auto-restart jam 06:00
+- tombol `Matikan` membuat akun dilewati scheduler
+- nilai disimpan di kolom `stream_settings.auto_restart_enabled`
 
 Command uji manual:
 

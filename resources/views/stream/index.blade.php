@@ -823,6 +823,7 @@
     $youtubeNotLive = $ytStatus === 'not_live';
     $localStreamingOnly = $isStreaming && $youtubeNotLive;
     $canStartStreaming = !$isStreaming || $localStreamingOnly;
+    $autoRestartEnabled = $setting ? (bool) ($setting->auto_restart_enabled ?? true) : false;
 @endphp
 
 {{-- Page Header --}}
@@ -1003,6 +1004,45 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        {{-- Auto Restart Setting --}}
+        <div class="stream-card">
+            <div class="card-head">
+                <h3><i class="fas fa-clock-rotate-left"></i> Auto-Restart Jam 06:00</h3>
+                <span class="status-badge {{ $autoRestartEnabled ? 'live' : 'offline' }}" style="font-size:0.72rem;padding:4px 10px;">
+                    <span class="dot"></span> {{ $autoRestartEnabled ? 'Aktif' : 'Nonaktif' }}
+                </span>
+            </div>
+            <div class="card-body-inner">
+                <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:14px;">
+                    Jika aktif, akun ini ikut stop/play PM2 sebanyak 5 kali setiap hari jam 06:00 WIB memakai playlist/video terakhir.
+                </p>
+
+                <form action="{{ route('stream.updateAutoRestart') }}" method="POST">
+                    @csrf
+                    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+                        <button type="submit"
+                                name="auto_restart_enabled"
+                                value="1"
+                                class="btn-stream {{ $autoRestartEnabled ? 'success' : 'outline' }}"
+                                @if (!$setting) disabled @endif>
+                            <i class="fas fa-toggle-on"></i> Aktifkan
+                        </button>
+                        <button type="submit"
+                                name="auto_restart_enabled"
+                                value="0"
+                                class="btn-stream {{ !$autoRestartEnabled ? 'danger' : 'outline' }}"
+                                @if (!$setting) disabled @endif>
+                            <i class="fas fa-toggle-off"></i> Matikan
+                        </button>
+                    </div>
+                </form>
+
+                <p class="form-hint">
+                    {{ $setting ? 'Pengaturan ini hanya berlaku untuk akun login saat ini.' : 'Simpan YouTube stream key terlebih dahulu agar pengaturan ini bisa dipakai.' }}
+                </p>
             </div>
         </div>
 

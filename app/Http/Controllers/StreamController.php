@@ -391,6 +391,29 @@ class StreamController extends Controller
         }
     }
 
+    public function updateAutoRestart(Request $request)
+    {
+        $request->validate([
+            'auto_restart_enabled' => 'required|boolean',
+        ]);
+
+        $setting = auth()->user()->streamSettings;
+        if (!$setting) {
+            return redirect()->route('stream.index')
+                ->with('error', 'Simpan YouTube stream key terlebih dahulu sebelum mengatur auto-restart.');
+        }
+
+        $enabled = $request->boolean('auto_restart_enabled');
+        $setting->update([
+            'auto_restart_enabled' => $enabled,
+        ]);
+
+        return redirect()->route('stream.index')
+            ->with('success', $enabled
+                ? 'Auto-restart jam 06:00 diaktifkan untuk akun ini.'
+                : 'Auto-restart jam 06:00 dimatikan untuk akun ini.');
+    }
+
     public function storeYoutubeConnection(Request $request)
     {
         $request->validate([
