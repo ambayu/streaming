@@ -19,6 +19,8 @@ Route::middleware('auth')->group(function () {
     Route::post('stream/youtube-cookies', [StreamController::class, 'storeYoutubeCookies'])->name('stream.storeYoutubeCookies');
     Route::post('stream/youtube-refresh-status', [StreamController::class, 'refreshYoutubeStatus'])->name('stream.refreshYoutubeStatus');
     Route::post('stream/prepare-youtube', [StreamController::class, 'prepareYoutube'])->name('stream.prepareYoutube');
+    Route::post('stream/youtube-browser', [StreamController::class, 'youtubeBrowserAction'])->name('stream.youtubeBrowserAction');
+    Route::get('stream/youtube-browser-screenshot', [StreamController::class, 'youtubeBrowserScreenshot'])->name('stream.youtubeBrowserScreenshot');
     Route::post('stream/start', [StreamController::class, 'start'])->name('stream.start');
     Route::post('stream/start-playlist', [StreamController::class, 'startFromPlaylist'])->name('stream.startPlaylist');
     Route::post('stream/stop', [StreamController::class, 'stop'])->name('stream.stop');

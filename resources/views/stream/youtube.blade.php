@@ -223,6 +223,39 @@
         border-color: rgba(148,163,184,0.22);
         color: var(--text-secondary);
     }
+
+    .browser-preview {
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        overflow: hidden;
+        background: rgba(0,0,0,0.25);
+        margin-top: 12px;
+    }
+
+    .browser-preview img {
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .coord-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    @media (max-width: 767px) {
+        .coord-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 @endsection
 
@@ -338,6 +371,105 @@
                         <i class="fas fa-upload"></i> Upload Cookie
                     </button>
                 </form>
+            </div>
+        </div>
+
+        <div class="stream-card">
+            <div class="card-head">
+                <h3><i class="fab fa-chrome" style="color:#38bdf8;"></i> Login Chrome VPS</h3>
+            </div>
+            <div class="card-body-inner">
+                <p style="font-size:0.83rem;color:var(--text-secondary);margin:0 0 12px 0;">
+                    Gunakan panel ini untuk login Google langsung di Chrome VPS. Teks/password/OTP hanya dikirim satu kali ke browser dan tidak disimpan di database.
+                </p>
+
+                <div class="quick-actions">
+                    <form action="{{ route('stream.youtubeBrowserAction') }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="action" value="navigate">
+                        <input type="hidden" name="url" value="https://accounts.google.com/">
+                        <button type="submit" class="btn-stream outline">
+                            <i class="fas fa-right-to-bracket"></i> Buka Login Google
+                        </button>
+                    </form>
+
+                    <form action="{{ route('stream.youtubeBrowserAction') }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="action" value="navigate">
+                        <input type="hidden" name="url" value="https://studio.youtube.com/">
+                        <button type="submit" class="btn-stream outline">
+                            <i class="fab fa-youtube"></i> Buka YouTube Studio
+                        </button>
+                    </form>
+
+                    <form action="{{ route('stream.youtubeBrowserAction') }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="action" value="screenshot">
+                        <button type="submit" class="btn-stream outline">
+                            <i class="fas fa-camera"></i> Refresh Screenshot
+                        </button>
+                    </form>
+                </div>
+
+                <form action="{{ route('stream.youtubeBrowserAction') }}" method="POST" style="margin-top:12px;">
+                    @csrf
+                    <input type="hidden" name="action" value="click_type">
+                    <div class="coord-grid">
+                        <div>
+                            <label class="form-label-dark" for="browser_x">Klik X</label>
+                            <input type="number" name="x" id="browser_x" class="input-dark" min="0" max="3000" placeholder="contoh: 520">
+                        </div>
+                        <div>
+                            <label class="form-label-dark" for="browser_y">Klik Y</label>
+                            <input type="number" name="y" id="browser_y" class="input-dark" min="0" max="3000" placeholder="contoh: 360">
+                        </div>
+                    </div>
+
+                    <label class="form-label-dark" for="browser_text" style="margin-top:12px;">Teks sekali pakai</label>
+                    <input type="text" name="text" id="browser_text" class="input-dark" autocomplete="off" placeholder="Email, password, atau OTP jika diminta">
+
+                    <label style="display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--text-secondary);font-size:0.82rem;">
+                        <input type="checkbox" name="press_enter" value="1">
+                        Tekan Enter setelah mengetik
+                    </label>
+
+                    <button type="submit" class="btn-save">
+                        <i class="fas fa-keyboard"></i> Klik + Ketik ke Chrome VPS
+                    </button>
+                </form>
+
+                <div class="quick-actions" style="margin-top:12px;margin-bottom:0;">
+                    <form action="{{ route('stream.youtubeBrowserAction') }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="action" value="key">
+                        <input type="hidden" name="key" value="Enter">
+                        <button type="submit" class="btn-stream outline">
+                            <i class="fas fa-turn-down"></i> Tekan Enter
+                        </button>
+                    </form>
+                    <form action="{{ route('stream.youtubeBrowserAction') }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="action" value="key">
+                        <input type="hidden" name="key" value="Tab">
+                        <button type="submit" class="btn-stream outline">
+                            <i class="fas fa-arrow-right"></i> Tekan Tab
+                        </button>
+                    </form>
+                </div>
+
+                <p class="form-hint">
+                    URL terakhir: {{ $browserState['currentUrl'] ?? 'Belum ada session browser.' }}
+                </p>
+
+                @if ($browserScreenshotExists)
+                    <div class="browser-preview">
+                        <img src="{{ route('stream.youtubeBrowserScreenshot', ['v' => time()]) }}" alt="Screenshot Chrome VPS">
+                    </div>
+                @else
+                    <div class="browser-preview" style="padding:18px;color:var(--text-muted);font-size:0.83rem;">
+                        Belum ada screenshot. Klik "Buka Login Google" atau "Refresh Screenshot".
+                    </div>
+                @endif
             </div>
         </div>
     </div>

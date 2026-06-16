@@ -156,8 +156,114 @@ class StreamController extends Controller
     public function youtube()
     {
         $setting = auth()->user()->streamSettings;
+        $browserStatePath = storage_path('app/youtube-sessions/' . auth()->id() . '/browser-state.json');
+        $browserState = file_exists($browserStatePath)
+            ? json_decode((string) file_get_contents($browserStatePath), true)
+            : [];
+        $browserScreenshotPath = storage_path('app/youtube-sessions/' . auth()->id() . '/browser.png');
+        $browserScreenshotExists = file_exists($browserScreenshotPath);
 
-        return view('stream.youtube', compact('setting'));
+        return view('stream.youtube', compact('setting', 'browserState', 'browserScreenshotExists'));
+    }
+
+    public function youtubeBrowserScreenshot()
+    {
+        $path = storage_path('app/youtube-sessions/' . auth()->id() . '/browser.png');
+
+        if (!file_exists($path)) {
+            abort(404);
+        }
+
+        return response()->file($path, [
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+        ]);
+    }
+
+    public function youtubeBrowserAction(Request $request)
+    {
+        $request->validate([
+            'action' => 'required|in:navigate,screenshot,click,click_type,key',
+            'url' => 'nullable|string|max:2048',
+            'x' => 'nullable|integer|min:0|max:3000',
+            'y' => 'nullable|integer|min:0|max:3000',
+            'text' => 'nullable|string|max:500',
+            'key' => 'nullable|in:Enter,Tab,Backspace,Escape',
+            'press_enter' => 'nullable|boolean',
+        ]);
+
+        if (in_array($request->input('action'), ['click', 'click_type'], true)
+            && ($request->input('x') === null || $request->input('y') === null)) {
+            return redirect()->route('stream.youtube')
+                ->with('error', 'Isi koordinat X dan Y dari screenshot sebelum klik.');
+        }
+
+        $result = $this->runYoutubeBrowserAction([
+            'action' => $request->input('action'),
+            'url' => $request->input('url'),
+            'x' => $request->input('x'),
+            'y' => $request->input('y'),
+            'text' => $request->input('text'),
+            'key' => $request->input('key') ?: 'Enter',
+            'pressEnter' => $request->boolean('press_enter'),
+        ]);
+
+        if (!($result['success'] ?? false)) {
+            return redirect()->route('stream.youtube')
+                ->with('error', 'Aksi browser VPS gagal: ' . ($result['message'] ?? 'Unknown error'));
+        }
+
+        return redirect()->route('stream.youtube')
+            ->with('success', $result['message'] ?? 'Aksi browser VPS selesai.');
+    }
+
+    protected function runYoutubeBrowserAction(array $payload): array
+    {
+        $scriptPath = base_path('youtube_browser_control.js');
+        if (!file_exists($scriptPath)) {
+            return [
+                'success' => false,
+                'message' => 'Script browser YouTube tidak ditemukan.',
+            ];
+        }
+
+        $nodePath = trim((string) shell_exec('which node 2>/dev/null'));
+        if ($nodePath === '') {
+            $nodePath = trim((string) shell_exec('command -v node 2>/dev/null'));
+        }
+
+        if ($nodePath === '') {
+            return [
+                'success' => false,
+                'message' => 'Node.js tidak ditemukan di server.',
+            ];
+        }
+
+        $sessionDir = storage_path('app/youtube-sessions/' . auth()->id());
+        $payload = array_merge($payload, [
+            'userId' => auth()->id(),
+            'sessionDir' => $sessionDir,
+            'screenshotPath' => $sessionDir . '/browser.png',
+            'statePath' => $sessionDir . '/browser-state.json',
+        ]);
+
+        $process = new Process(
+            [$nodePath, $scriptPath, base64_encode(json_encode($payload))],
+            base_path(),
+            ['PATH' => '/usr/bin:/bin:/usr/local/bin:/usr/sbin:/sbin'],
+            null,
+            90
+        );
+        $process->run();
+
+        $decoded = json_decode(trim($process->getOutput()), true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+
+        return [
+            'success' => false,
+            'message' => trim($process->getErrorOutput()) ?: 'Browser VPS tidak mengembalikan output valid.',
+        ];
     }
 
     public function clearErrors()
