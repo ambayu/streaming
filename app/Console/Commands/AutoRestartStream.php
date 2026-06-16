@@ -119,6 +119,20 @@ class AutoRestartStream extends Command
                 continue;
             }
 
+            if (!empty($setting->google_email)) {
+                $this->logMessage("Menyiapkan YouTube Go Live untuk User $userId memakai session Chrome VPS...");
+                $prepareResult = $youTubeAutomationService->prepare($setting);
+
+                if (!($prepareResult['success'] ?? false)) {
+                    $this->logMessage(
+                        "Prepare YouTube gagal untuk User $userId: " . ($prepareResult['message'] ?? 'Unknown error') . ". PM2 tetap akan direstart.",
+                        'warning'
+                    );
+                } else {
+                    $this->logMessage("Prepare YouTube selesai untuk User $userId: " . ($prepareResult['message'] ?? 'OK'));
+                }
+            }
+
             // 1. Dapatkan daftar video terakhir
             $videos = collect();
             $source = 'manual';

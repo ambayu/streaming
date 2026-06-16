@@ -23,14 +23,6 @@ class YouTubeAutomationService
         $cookiePath = $setting->youtube_cookie_path;
         $hasCookie = !empty($cookiePath) && Storage::disk('local')->exists($cookiePath);
 
-        if (!$hasCookie && $action !== 'status') {
-            return [
-                'success' => false,
-                'status' => 'missing_cookies',
-                'message' => 'Cookie YouTube belum diunggah. Upload file cookie JSON terlebih dahulu.',
-            ];
-        }
-
         if (!$hasCookie && $action === 'status' && empty($setting->youtube_channel_id)) {
             return [
                 'success' => false,
