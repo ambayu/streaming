@@ -53,13 +53,19 @@ class YouTubeAutomationService
             ];
         }
 
+        $usesPublicStatusCheck = $action === 'status' && !empty($setting->youtube_channel_id);
+        $sessionDir = storage_path('app/youtube-sessions/' . $setting->user_id);
+        if ($usesPublicStatusCheck) {
+            $sessionDir .= '/status-check';
+        }
+
         $payload = [
             'action' => $action,
             'userId' => (int) $setting->user_id,
             'googleEmail' => $setting->google_email,
             'channelId' => $setting->youtube_channel_id,
             'cookiePath' => $hasCookie ? Storage::disk('local')->path($cookiePath) : null,
-            'sessionDir' => storage_path('app/youtube-sessions/' . $setting->user_id),
+            'sessionDir' => $sessionDir,
             'screenshotPath' => storage_path('app/youtube-sessions/' . $setting->user_id . '/last-' . $action . '.png'),
         ];
 
